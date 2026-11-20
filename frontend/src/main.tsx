@@ -7,7 +7,7 @@ import './styles.css'
 import captions from './captions.vtt?raw'
 
 const Scene=lazy(()=>import('./Scene'))
-const sample='./samples/'
+const sample=document.documentElement.dataset.samplePath || './samples/'
 const captionUrl='data:text/vtt;charset=utf-8,'+encodeURIComponent(captions)
 const resultFiles=['pegboard.FCStd','pegboard.step','pegboard.dxf','pegboard.svg','pegboard.pdf']
 const cases=[['Minimum',30,49],['Nominal',300,200],['Wider',360,200]] as const
@@ -26,10 +26,11 @@ const api = async <T,>(path:string, body?:unknown):Promise<T>=>{
 
 function Blueprint({model,dimensions}:{model:Preview,dimensions:boolean}) {
   const {parameters:p,slots}=model
+  const slotCount=model.calculations.totalSlots
   const scale=Math.min(560/p.boardWidth,292/p.boardHeight)
   const w=p.boardWidth*scale,h=p.boardHeight*scale
   const x=390-w/2,y=207-h/2
-  return <svg className="blueprint-svg" viewBox="0 0 780 410" role="img" aria-label={`Top view: ${model.calculations.totalSlots} slots, ${p.boardWidth} by ${p.boardHeight} millimetres`}>
+  return <svg className="blueprint-svg" viewBox="0 0 780 410" role="img" aria-label={`Top view: ${slotCount} ${slotCount===1?'slot':'slots'}, ${p.boardWidth} by ${p.boardHeight} millimetres`}>
     <defs>
       <marker id="arrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0 0L6 3.5L0 7" fill="none" stroke="#486a9a"/></marker>
       <pattern id="minor" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="#e6edf6" strokeWidth=".8"/></pattern>
@@ -128,7 +129,7 @@ function App() {
   async function loadFile(file:File) {
     if(demo){
       if(!file.name.toLowerCase().endsWith('.csv')) throw Error('The interactive demo accepts CSV. Use the local workspace to upload Excel workbooks.')
-      const rows=(await file.text()).replace(/^\uFEFF/,'').split(/\r?\n/).map(line=>line.split(',').map(cell=>cell.trim().replace(/^"|"$/g,'')))
+      const rows=(await file.text()).replace(/^\uFEFF/,'').split(/\r?\n/).map(line=>line.split(',').map(cell=>cell.trim().replace(/^"|"$/g,'').trim()))
       const values=Object.fromEntries(fields.map(([key])=>{
         const hits=rows.filter(row=>row[0]===key)
         if(hits.length!==1||!hits[0][1]) throw Error(`Enter one value for ${key} in the CSV.`)
