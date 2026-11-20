@@ -27,7 +27,9 @@ For Windows, activate `.venv\Scripts\Activate.ps1`, set `$env:PYTHONPATH="backen
 
 ## Demo and video
 
-Use the **Interactive demo** link in the app or open the repository’s root `index.html` after cloning or extracting the GitHub ZIP. Keep the `demo/samples` directory beside it for video and downloads. The demo also has its own entry point at `demo/index.html`. The standalone demo can be opened directly after extraction. If your browser restricts local HTML, run `python -m http.server 8080` in the demo directory and open http://127.0.0.1:8080. It supports editable parameters, CSV import, case presets, live calculations, 2D and WebGL previews, and sample downloads. **Demo video** opens the captioned walkthrough in either workspace. Demo downloads and test outcomes are recorded nominal samples. [Download the walkthrough video](demo/samples/walkthrough.mp4) or [view the acceptance log](outputs/acceptance/pegboard_test_log.csv). Start the local workspace to execute FreeCAD with edited dimensions and to import XLSX.
+[Download the standalone HTML](https://raw.githubusercontent.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/main/index.html) using the browser’s **Save link as** command, then open the saved file. The root HTML includes the demo, walkthrough video, and sample downloads in one file. You can also open `demo/index.html` alongside its `demo/samples` directory or use **Interactive demo** inside the running full app. If your browser restricts local HTML, run `python -m http.server 8080` in the repository directory and open http://127.0.0.1:8080.
+
+The interactive demo supports parameter edits, CSV upload, and 2D and 3D previews. Its downloadable files and test results are recorded FreeCAD samples. Run the full app for Excel input, custom CAD generation, and live FreeCAD tests. [Walkthrough video](demo/samples/walkthrough.mp4) · [Acceptance log](outputs/acceptance/pegboard_test_log.csv)
 
 ## Use the engineering workflow
 

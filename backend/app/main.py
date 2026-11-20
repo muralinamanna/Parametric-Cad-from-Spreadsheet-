@@ -12,7 +12,8 @@ from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
@@ -63,6 +64,12 @@ class Preview(BaseModel):
 
 app = FastAPI(title="Spreadsheet to Drawing", version="1.0.0")
 
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request, error):
+    # Validation entries may echo non-finite floats, which JSON cannot encode.
+    detail = [{key: issue[key] for key in ("loc", "msg", "type")} for issue in error.errors()]
+    return JSONResponse(status_code=422, content={"detail": detail})
+
 def preview(p):
     values = p.model_dump()
     try:
@@ -99,7 +106,8 @@ def cad_command(job_path):
         f"import sys\nsys.path.insert(0, {str(APP)!r})\n"
         f"import cad\ncad.main({str(job_path)!r})\n"
         "if App.ActiveDocument:\n    App.closeDocument(App.ActiveDocument.Name)\n"
-        "Gui.getMainWindow().close()\n"
+        "Gui.getMainWindow().close()\n",
+        encoding="utf-8",
     )
     return [binary, str(macro)], env
 

@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import os
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
@@ -25,6 +26,15 @@ def test_workbook_csv_and_invalid_upload(client):
         assert response.json()["calculations"]["totalSlots"]==80
     assert client.post("/api/spreadsheet/upload",files={"file":("bad.xlsx",b"invalid")}).status_code==422
     assert client.get("/api/exports/no/job.FCStd").status_code==404
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_json_returns_validation_error(client, value):
+    response = client.post("/api/parameters/validate",
+                           content=json.dumps(DEFAULTS | {"boardWidth": value}),
+                           headers={"Content-Type": "application/json"})
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"][-1] == "boardWidth"
 
 
 @pytest.mark.skipif(os.getenv("RUN_CAD_TESTS")!="1",reason="Set RUN_CAD_TESTS=1 to exercise FreeCAD and Inkscape.")

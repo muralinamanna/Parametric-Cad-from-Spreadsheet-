@@ -8,14 +8,27 @@ import captions from './captions.vtt?raw'
 
 const Scene=lazy(()=>import('./Scene'))
 const fullAppSetup='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-#run-the-full-local-app'
-const sample=document.documentElement.dataset.samplePath || './samples/'
+const embeddedSamples=document.getElementById('embedded-samples')?.textContent
+const bundledSamples:Record<string,[string,string]>=embeddedSamples?JSON.parse(embeddedSamples):{}
+const localSampleUrls=new Map<string,string>()
+function sampleUrl(name:string) {
+  const bundled=bundledSamples[name]
+  if (!bundled) return './samples/'+name
+  const cached=localSampleUrls.get(name)
+  if (cached) return cached
+  const [type,base64]=bundled
+  const bytes=Uint8Array.from(atob(base64),byte=>byte.charCodeAt(0))
+  const url=URL.createObjectURL(new Blob([bytes],{type}))
+  localSampleUrls.set(name,url)
+  return url
+}
 const captionUrl='data:text/vtt;charset=utf-8,'+encodeURIComponent(captions)
 const resultFiles=['pegboard.FCStd','pegboard.step','pegboard.dxf','pegboard.svg','pegboard.pdf']
 const cases=[['Minimum',30,49],['Nominal',300,200],['Wider',360,200]] as const
 const downloadable:Record<string,string>={
-  ...Object.fromEntries(resultFiles.map(name=>[name,sample+name])),
-  'pegboard_test_log.csv':sample+'pegboard_test_log.csv','validation_report.json':sample+'validation_report.json',
-  ...Object.fromEntries([1,2,3].map(i=>[`case_${i}.FCStd`,sample+`case_${i}.FCStd`]))
+  ...Object.fromEntries(resultFiles.map(name=>[name,sampleUrl(name)])),
+  'pegboard_test_log.csv':sampleUrl('pegboard_test_log.csv'),'validation_report.json':sampleUrl('validation_report.json'),
+  ...Object.fromEntries([1,2,3].map(i=>[`case_${i}.FCStd`,sampleUrl(`case_${i}.FCStd`)]))
 }
 type Job={id:string,files:Record<string,string>,evidence:{cases?:{name:string,result:string}[],transitionsPassed?:boolean,actualSlots?:number}}
 const api = async <T,>(path:string, body?:unknown):Promise<T>=>{
@@ -134,7 +147,11 @@ function App() {
       const values=Object.fromEntries(fields.map(([key])=>{
         const hits=rows.filter(row=>row[0]===key)
         if(hits.length!==1||!hits[0][1]) throw Error(`Enter one value for ${key} in the CSV.`)
-        return [key,Number(hits[0][1])]
+        const value=hits[0][1]
+        if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value)) {
+          throw Error(`Enter a decimal number for ${key} in the CSV.`)
+        }
+        return [key,Number(value)]
       })) as Parameters
       await apply(values)
     } else {
@@ -162,7 +179,7 @@ function App() {
           <div className="filebar">
             <input ref={upload} type="file" accept={demo?'.csv':'.xlsx,.csv'} hidden onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void act('Reading spreadsheet',()=>loadFile(file))}}/>
             <button className="btn small-btn" disabled={!!busy} onClick={()=>upload.current?.click()}><Upload size={14}/> Load spreadsheet</button>
-            <a className="template" title="Download Excel template" href={sample+(demo?'pegboard_parameters.csv':'pegboard_parameters.xlsx')} download><ArrowDownToLine size={14}/> {demo?'CSV template':'Excel template'}</a>
+            <a className="template" title={demo?'Download CSV template':'Download Excel template'} href={sampleUrl(demo?'pegboard_parameters.csv':'pegboard_parameters.xlsx')} download={demo?'pegboard_parameters.csv':'pegboard_parameters.xlsx'}><ArrowDownToLine size={14}/> {demo?'CSV template':'Excel template'}</a>
           </div>
           {demo&&<div className="casebar">{cases.map(([name,w,h])=><button key={name} className="btn small-btn" onClick={()=>void act('Loading demo case',()=>apply({...defaults,boardWidth:w,boardHeight:h}))}>{name}</button>)}</div>}
           <form onSubmit={e=>{e.preventDefault();void act('Validating dimensions',()=>apply())}}>
@@ -197,9 +214,9 @@ function App() {
           <div className="export-body">
             {!demo&&<label className="material-label">Drawing material <input value={material} maxLength={48} onChange={e=>setMaterial(e.target.value)} placeholder="Unspecified"/></label>}
             <div className="export-actions"><button className="btn primary" disabled={!!busy} onClick={()=>cad('drawing')}><FileText size={16}/> Generate 2D drawing</button><button className="btn" disabled={!!busy} onClick={()=>cad('tests')}><ClipboardCheck size={16}/> Run three-case tests</button></div>
-            <div className="filechips">{resultFiles.map((filename,i)=>files[filename]?<a className="btn small-btn" href={files[filename]} download key={filename}><ArrowDownToLine size={14}/>{['FCStd','STEP','DXF','SVG','PDF'][i]}</a>:<button disabled key={filename} className="btn small-btn">{['FCStd','STEP','DXF','SVG','PDF'][i]}</button>)}</div>
+            <div className="filechips">{resultFiles.map((filename,i)=>files[filename]?<a className="btn small-btn" href={files[filename]} download={filename} key={filename}><ArrowDownToLine size={14}/>{['FCStd','STEP','DXF','SVG','PDF'][i]}</a>:<button disabled key={filename} className="btn small-btn">{['FCStd','STEP','DXF','SVG','PDF'][i]}</button>)}</div>
             {testResults?.cases&&<div className="test-results">{testResults.cases.map(row=><div key={row.name}><span>{row.name}</span><b className={row.result==='PASS'?'pass':'failure'}>{row.result}</b></div>)}<p>Row and column transitions {testResults.transitionsPassed?'passed':'failed'}.</p></div>}
-            <div className="reports">{files['pegboard_test_log.csv']&&<a href={files['pegboard_test_log.csv']} download><ArrowDownToLine size={15}/> Download test log</a>}{files['validation_report.json']&&<a href={files['validation_report.json']} download>JSON report</a>}{[1,2,3].map(i=>files[`case_${i}.FCStd`]&&<a key={i} href={files[`case_${i}.FCStd`]} download>Case {i} FCStd</a>)}</div>
+            <div className="reports">{files['pegboard_test_log.csv']&&<a href={files['pegboard_test_log.csv']} download="pegboard_test_log.csv"><ArrowDownToLine size={15}/> Download test log</a>}{files['validation_report.json']&&<a href={files['validation_report.json']} download="validation_report.json">JSON report</a>}{[1,2,3].map(i=>files[`case_${i}.FCStd`]&&<a key={i} href={files[`case_${i}.FCStd`]} download={`case_${i}.FCStd`}>Case {i} FCStd</a>)}</div>
           </div>
         </section>
       </div>
@@ -207,8 +224,8 @@ function App() {
     </main>
     <dialog aria-label="Spreadsheet to Drawing walkthrough" ref={video} onClose={()=>video.current?.querySelector('video')?.pause()} className="video-dialog">
       <div className="panel-head"><div className="icon-tile"><Play size={19}/></div><div><h2>Spreadsheet to Drawing walkthrough</h2><p>Inputs, CAD recomputation, drawings and test evidence</p></div><button className="square" onClick={()=>video.current?.close()} aria-label="Close video"><X size={18}/></button></div>
-      <video controls preload="none" playsInline src={sample+'walkthrough.mp4'}><track src={captionUrl} kind="captions" srcLang="en" label="English" default/></video>
-      <a className="template video-download" href={sample+'walkthrough.mp4'} download><ArrowDownToLine size={15}/> Download video</a>
+      <video controls preload="none" playsInline src={sampleUrl('walkthrough.mp4')}><track src={captionUrl} kind="captions" srcLang="en" label="English" default/></video>
+      <a className="template video-download" href={sampleUrl('walkthrough.mp4')} download="walkthrough.mp4"><ArrowDownToLine size={15}/> Download video</a>
     </dialog>
   </>
 }
