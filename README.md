@@ -16,7 +16,7 @@ The tested configuration is Debian 13, FreeCAD 1.0.0 with its Python 3.13 bindin
    ./scripts/start.sh
    ```
 
-3. Open http://127.0.0.1:8000. The worker status displays the detected FreeCAD version. http://127.0.0.1:8000/docs exposes the API schema.
+3. Once the terminal reports that Uvicorn is running, open http://127.0.0.1:8000 on the same computer. Keep that terminal open while using the full app. The worker status displays the detected FreeCAD version. http://127.0.0.1:8000/docs exposes the API schema.
 4. To rebuild the UI, run `npm ci && npm run build` inside `frontend`.
 
 ### FreeCAD worker setup

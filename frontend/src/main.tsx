@@ -7,6 +7,7 @@ import './styles.css'
 import captions from './captions.vtt?raw'
 
 const Scene=lazy(()=>import('./Scene'))
+const fullAppSetup='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-#run-the-full-local-app'
 const sample=document.documentElement.dataset.samplePath || './samples/'
 const captionUrl='data:text/vtt;charset=utf-8,'+encodeURIComponent(captions)
 const resultFiles=['pegboard.FCStd','pegboard.step','pegboard.dxf','pegboard.svg','pegboard.pdf']
@@ -102,7 +103,7 @@ function App() {
   }
   function cad(action:'model'|'drawing'|'tests') {
     if(demo){
-      setMessage(action==='tests'?'Showing the recorded FreeCAD acceptance results for the sample.':'Sample exports are available below. Use the local workspace to generate files for your parameters.')
+      setMessage(action==='tests'?'Showing the recorded FreeCAD acceptance results for the sample.':'Sample exports are available below. Use the full app to generate files for your parameters.')
       if(action==='tests') setTestResults({cases:[{name:'Smallest valid board',result:'PASS'},{name:'Nominal board',result:'PASS'},{name:'Wider board',result:'PASS'}],transitionsPassed:true})
       return
     }
@@ -128,7 +129,7 @@ function App() {
   }
   async function loadFile(file:File) {
     if(demo){
-      if(!file.name.toLowerCase().endsWith('.csv')) throw Error('The interactive demo accepts CSV. Use the local workspace to upload Excel workbooks.')
+      if(!file.name.toLowerCase().endsWith('.csv')) throw Error('The interactive demo accepts CSV. Use the full app to upload Excel workbooks.')
       const rows=(await file.text()).replace(/^\uFEFF/,'').split(/\r?\n/).map(line=>line.split(',').map(cell=>cell.trim().replace(/^"|"$/g,'').trim()))
       const values=Object.fromEntries(fields.map(([key])=>{
         const hits=rows.filter(row=>row[0]===key)
@@ -146,7 +147,7 @@ function App() {
   return <>
     <header className="topbar">
       <div className="brand"><div className="logo"><Layers3 size={20}/></div><div>Spreadsheet to Drawing<span>PARAMETRIC CAD WORKSPACE</span></div></div>
-      <nav aria-label="Workspace"><a className="nav-active" href={demo?'?demo':'./'}>{demo?'Demo workspace':'Workspace'}</a><a href={demo?(standalone?'http://127.0.0.1:8000/':'./'):'?demo'}>{demo?'Local workspace':'Interactive demo'} <ArrowRight size={12}/></a></nav>
+      <nav aria-label="Workspace"><a className="nav-active" href={demo?'?demo':'./'}>{demo?'Demo workspace':'Workspace'}</a><a href={standalone?fullAppSetup:demo?'./':'?demo'}>{standalone?'Full app setup':demo?'Local workspace':'Interactive demo'} <ArrowRight size={12}/></a></nav>
       <button className="btn video-button" onClick={()=>video.current?.showModal()}><Play size={15}/> Demo video</button>
     </header>
     <main>
@@ -154,7 +155,7 @@ function App() {
         <div><div className="eyebrow"><span/> MODEL WORKSPACE <small>/</small> PB-001</div><h1>Parametric pegboard</h1><p>Drive a FreeCAD model and manufacturing drawing from spreadsheet dimensions.</p></div>
         <div className="hero-end"><span className="mode"><span className={demo||version?'green':'amber'}/>{demo?'Interactive demo':version?'FreeCAD '+version:'FreeCAD worker offline'}</span><button className="btn primary" disabled={!!busy} onClick={()=>cad('model')}><Box size={17}/> Generate CAD model</button></div>
       </section>
-      {demo&&<aside className="demo-note"><CircleHelp size={16}/> Edit dimensions or select a case. The downloadable CAD, drawings, and test reports are recorded FreeCAD samples.</aside>}
+      {demo&&<aside className="demo-note"><CircleHelp size={16}/> Edit dimensions or select a case. The demo runs in your browser and includes recorded FreeCAD samples. The full app generates custom CAD exports.</aside>}
       <div className="workspace">
         <section className="panel params">
           <div className="panel-head"><div className="icon-tile"><FileSpreadsheet size={19}/></div><div><h2>Parameters</h2><p>Spreadsheet inputs in millimetres</p></div></div>
