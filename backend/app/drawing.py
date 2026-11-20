@@ -1,0 +1,138 @@
+"""TechDraw projections plus a dimensioned sheet and a unit-scale profile DXF."""
+import math
+import subprocess
+from html import escape
+
+import FreeCAD as App
+import TechDraw
+
+V = App.Vector
+VIEWS = [
+    ("Top", (0,0,1), (1,0,0)),
+    ("Front", (0,-1,0), (1,0,0)),
+    ("Right", (1,0,0), (0,1,0)),
+    ("Isometric", (1,-1,1), (1,1,0)),
+]
+
+def projection(shape, normal, horizontal):
+    vertical = normal.cross(horizontal)
+    rotation = App.Rotation(horizontal, vertical, normal, "ZXY")
+    transformed = shape.copy()
+    transformed.transformShape(rotation.inverted().toMatrix(), True)
+    groups = TechDraw.project(transformed, V(0,0,1))
+    return [tuple((point.Point.x, point.Point.y) for point in edge.Vertexes)
+            for group in groups[:2] if not group.isNull()
+            for edge in group.Edges if len(edge.Vertexes)==2]
+
+def write_dxf(path, edges, note):
+    data = [0,"SECTION",2,"HEADER",9,"$ACADVER",1,"AC1015",9,"$INSUNITS",70,4,
+            0,"ENDSEC",0,"SECTION",2,"ENTITIES"]
+    for (x,y),(xx,yy) in edges:
+        data += [0,"LINE",100,"AcDbEntity",8,"CUT_PROFILE",100,"AcDbLine",
+                 10,x,20,y,30,0,11,xx,21,yy,31,0]
+    for index, sentence in enumerate(note):
+        sentence = sentence.replace("×","x").encode("ascii","replace").decode()
+        data += [0,"TEXT",100,"AcDbEntity",8,"ANNOTATIONS",100,"AcDbText",
+                 10,0,20,-8-index*6,30,0,40,3,1,sentence,100,"AcDbText"]
+    path.write_text("\n".join(map(str,data+[0,"ENDSEC",0,"EOF",""])),encoding="ascii")
+
+def draw(doc,p,c,folder,meta):
+    doc.TransientDir = str(folder)
+    w,h,t = (p[k] for k in ("boardWidth","boardHeight","boardThickness"))
+    source = doc.Pegboard
+    page = doc.addObject("TechDraw::DrawPage", "EngineeringDrawing")
+    template = doc.addObject("TechDraw::DrawSVGTemplate", "SheetTemplate")
+    geometry = [(name,V(*normal),V(*horizontal),projection(source.Shape,V(*normal),V(*horizontal)))
+                for name,normal,horizontal in VIEWS]
+    if any(not edges for _,_,_,edges in geometry):
+        raise ValueError("One or more TechDraw projections are empty.")
+    limit = [1]
+    for (_,_,_,edges),(width,height) in zip(geometry,[(128,87),(128,14),(104,14),(104,70)]):
+        xs,ys = zip(*(point for edge in edges for point in edge))
+        limit.extend([(max(xs)-min(xs))/width,(max(ys)-min(ys))/height])
+    ratio = max(1,math.ceil(max(limit)))
+    scale = 1/ratio
+    page.Scale = scale
+
+    notes = [
+        f'Board: {w:g} × {h:g} × {t:g} mm',
+        f'{c["totalSlots"]} × {p["slotWidth"]:g} × {p["slotLength"]:g} mm rectangular slots, THRU',
+        f'{c["columnCount"]} columns × {c["rowCount"]} rows',
+        f'Pitch X {c["pitchX"]:g} mm  /  Pitch Y {c["pitchY"]:g} mm',
+        f'First slot offset from left and bottom: {p["edgeMargin"]:g} mm',
+        f'Right clearance {c["rightClearance"]:g} mm  /  Top clearance {c["topClearance"]:g} mm',
+    ]
+    base = ['<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="210mm" viewBox="0 0 297 210">',
+            '<rect width="297" height="210" fill="white"/>',
+            '<rect x="7" y="7" width="283" height="196" fill="none" stroke="#182630" stroke-width=".45"/>']
+    marks, lines = [], []
+    def label(x,y,message,size=3,anchor="start"):
+        marks.append(f'<text x="{x:g}" y="{y:g}" font-family="DejaVu Sans, sans-serif" font-size="{size:g}" text-anchor="{anchor}" fill="#182630">{escape(str(message))}</text>')
+    def line(target,x,y,xx,yy,width=.22):
+        target.append(f'<path d="M{x:.6f},{y:.6f} L{xx:.6f},{yy:.6f}" fill="none" stroke="#182630" stroke-width="{width:g}"/>')
+    def horizontal(x,xx,y,ref,text):
+        line(marks,x,ref,x,y-1)
+        line(marks,xx,ref,xx,y-1)
+        line(marks,x,y,xx,y)
+        for px in (x,xx):
+            line(marks,px-.8,y+.8,px+.8,y-.8)
+        label((x+xx)/2,y-1.2,text,3,"middle")
+    def vertical(y,yy,x,ref,text):
+        line(marks,ref,y,x-1,y)
+        line(marks,ref,yy,x-1,yy)
+        line(marks,x,y,x,yy)
+        for py in (y,yy):
+            line(marks,x-.8,py+.8,x+.8,py-.8)
+        label(x-2,(y+yy)/2+1,text,3,"end")
+
+    label(15,17,meta["title"],6)
+    label(282,17,f'{meta["part"]}  /  {meta["revision"]}',3,"end")
+    line(marks,7,22,290,22,.38)
+    title_positions = [(96,77,129),(96,146,161),(224,146,161),(224,70,113)]
+    for (name,normal,reference,edges),(cx,cy,caption) in zip(geometry,title_positions):
+        xs,ys = zip(*(point for edge in edges for point in edge))
+        mx,my = (min(xs)+max(xs))/2,(min(ys)+max(ys))/2
+        for (x,y),(xx,yy) in edges:
+            line(lines,cx+(x-mx)*scale,cy-(y-my)*scale,cx+(xx-mx)*scale,cy-(yy-my)*scale,.31)
+        label(cx,caption,name.upper(),3.1,"middle")
+        if name == "Top":
+            left = cx-w*scale/2
+            right = cx+w*scale/2
+            top = cy-h*scale/2
+            bottom = cy+h*scale/2
+            horizontal(left,right,top-6,top,f"{w:g}")
+            vertical(top,bottom,left-7,left,f"{h:g}")
+        if name == "Right":
+            vertical(cy-t*scale/2,cy+t*scale/2,cx-h*scale/2-6,cx-h*scale/2,f"{t:g}")
+
+    for index,note in enumerate(notes):
+        label(15,171+index*4.7,note,2.8)
+    line(marks,7,165,290,165,.38)
+    line(marks,171,165,171,203,.32)
+    for index,info in enumerate([
+        f'DRAWING  {meta["part"]}     REV  {meta["revision"]}',
+        f'MATERIAL  {meta["material"]}',
+        f'SCALE  1:{ratio}     UNITS  mm     SIZE  A4',
+        f'DATE  {meta["date"]}     SHEET  1 / 1',
+        'GENERATED BY  Spreadsheet to Drawing',
+    ]):
+        label(177,172+index*6,info,3)
+
+    # Keep the title block and the engineering callouts inside the native page template.
+    # The four rendered view outlines are independent TechDraw DrawViewPart objects.
+    (folder/"drawing-template.svg").write_text("\n".join(base+marks+["</svg>"]),encoding="utf-8")
+    template.Template = str(folder/"drawing-template.svg")
+    page.Template = template
+    for (name,normal,reference,_),(cx,cy,_) in zip(geometry,title_positions):
+        view = doc.addObject("TechDraw::DrawViewPart",name+"View")
+        view.Source = [source]
+        view.Direction, view.XDirection = normal, reference
+        page.addView(view)
+        view.ScaleType = "Page"
+        view.X, view.Y = cx, 210-cy
+    doc.recompute()
+    svg = folder/"pegboard.svg"
+    svg.write_text("\n".join(base+lines+marks+["</svg>"]),encoding="utf-8")
+    subprocess.run(["inkscape",str(svg),"--export-type=pdf",f'--export-filename={folder/"pegboard.pdf"}'],
+                   check=True, capture_output=True, timeout=45)
+    write_dxf(folder/"pegboard.dxf",geometry[0][3],notes[:5])

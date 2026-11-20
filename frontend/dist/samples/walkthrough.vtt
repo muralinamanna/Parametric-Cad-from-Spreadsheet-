@@ -1,0 +1,46 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:06.585
+Start with the Excel template, or load a compatible CSV file.
+The seven inputs are in millimetres.
+
+00:00:06.685 --> 00:00:12.125
+The nominal pegboard is three hundred by two hundred, with
+sixteen columns and five rows.
+
+00:00:13.542 --> 00:00:18.397
+Change the board width to three hundred sixty millimetres and
+apply the parameters.
+
+00:00:18.497 --> 00:00:25.897
+Nineteen columns now fit. The dashboard shows the width
+threshold and preserves the last valid preview if an edit fails.
+
+00:00:27.292 --> 00:00:35.552
+Generate CAD model to run FreeCAD. The saved file retains the
+Parameters spreadsheet and the fully constrained Master Slot
+sketch.
+
+00:00:35.652 --> 00:00:41.867
+The rectangular array repeats a through cutter at each pitch.
+Open 3D Orbit to inspect the result.
+
+00:00:43.375 --> 00:00:52.205
+Generate the 2D drawing to download the PDF or SVG. The sheet
+shows four views, board dimensions, and the repeating slot
+specification.
+
+00:00:52.305 --> 00:00:58.760
+Use the one to one DXF cut profile for exchange. The STEP file
+contains the final solid.
+
+00:00:59.083 --> 00:01:06.943
+Run the three case tests. FreeCAD edits only the spreadsheet
+between cases, then checks the openings on both faces of the
+solid.
+
+00:01:07.043 --> 00:01:15.328
+The minimum, nominal and wider boards have one, eighty and
+ninety five slots. Download the three row CSV and the detailed
+JSON report.
+

@@ -1,0 +1,4 @@
+Test Case,Board Width,Board Height,Board Thickness,Expected Rows,Actual Rows,Expected Columns,Actual Columns,Expected Slots,Actual Slots,Minimum Edge Clearance,Shape Valid,Broken References,Recompute Successful,Result
+Smallest valid board,30,49,6,1,1,1,1,1,1,12.0,True,False,True,PASS
+Nominal board,300,200,6,5,5,16,16,80,80,12.0,True,False,True,PASS
+Wider board,360,200,6,5,5,19,19,95,95,12.0,True,False,True,PASS

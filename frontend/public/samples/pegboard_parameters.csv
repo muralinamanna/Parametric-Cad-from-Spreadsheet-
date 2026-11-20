@@ -1,0 +1,8 @@
+Parameter,Value (mm)
+boardWidth,300
+boardHeight,200
+boardThickness,6
+edgeMargin,12
+slotWidth,6
+slotLength,25
+slotSpacing,12
