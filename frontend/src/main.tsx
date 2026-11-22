@@ -7,7 +7,8 @@ import './styles.css'
 import captions from './captions.vtt?raw'
 
 const Scene=lazy(()=>import('./Scene'))
-const fullAppSetup='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-#run-the-full-local-app'
+const setupGuide='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/blob/b5bf3d5835ce7a0e45a3d6edbcf1df2c14730064/README.md'
+const fullAppSetup=setupGuide+'#run-the-full-local-app'
 const embeddedSamples=document.getElementById('embedded-samples')?.textContent
 const bundledSamples:Record<string,[string,string]>=embeddedSamples?JSON.parse(embeddedSamples):{}
 const localSampleUrls=new Map<string,string>()
@@ -186,7 +187,18 @@ function App() {
         <div><div className="eyebrow"><span/> MODEL WORKSPACE <small>/</small> PB-001</div><h1>Parametric pegboard</h1><p>Drive a parametric model and manufacturing drawing from spreadsheet dimensions.</p></div>
         <div className="hero-end"><span className="mode"><span className={demo||version||health?.engines?.solidcraft.available?'green':'amber'}/>{demo?'Interactive demo':version?'FreeCAD '+version:health?.engines?.solidcraft.available?'SolidCraft '+health.engines.solidcraft.version:health?'CAD engines offline':'Checking CAD engines'}</span><button className="btn primary" disabled={!!busy} onClick={()=>cad('model')}><Box size={17}/> Generate CAD model</button></div>
       </section>
-      {demo&&<aside className="demo-note"><CircleHelp size={16}/> Edit dimensions or select a case. The demo runs in your browser and includes recorded FreeCAD samples. The full app generates custom CAD exports.</aside>}
+      {demo&&<aside className="demo-note">
+        <CircleHelp size={16} aria-hidden="true"/>
+        <div>
+          Edit dimensions or select a case. The browser demo includes recorded FreeCAD sample exports.
+          <details className="demo-engine-help">
+            <summary>How CAD engine switching works</summary>
+            <p>To generate custom CAD files, run the full app with a CAD engine installed. Auto tries FreeCAD first
+              and retries a failed CAD operation once with SolidCraft 0.45.0. You can also select either engine manually.</p>
+            <p><a href={setupGuide+'#cad-engine-switching'}>CAD engine setup and supported exports</a></p>
+          </details>
+        </div>
+      </aside>}
       {!demo&&<section className="panel engine-panel" aria-label="CAD engine">
         <div className="engine-controls">
           <label>CAD engine <select aria-label="CAD engine mode" disabled={!!busy} value={preferred}

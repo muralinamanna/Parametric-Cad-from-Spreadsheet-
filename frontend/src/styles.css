@@ -120,3 +120,6 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .engine-controls select{font:inherit;border:1px solid #d5e0ec;background:#f8fafd;border-radius:5px;padding:5px 8px;color:#233c5c}
 .engine-panel p{margin:6px 0 0}
 .fallback-reason{display:block;overflow-wrap:anywhere}
+.demo-note>svg{flex:none;align-self:flex-start;margin-top:2px}
+.demo-engine-help{padding:6px 0 0;font-size:12px}
+.demo-engine-help summary{display:list-item;font-weight:600}

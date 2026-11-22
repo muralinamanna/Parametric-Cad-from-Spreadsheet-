@@ -63,7 +63,7 @@ The adapter invokes a separately installed third-party program by Tangency Labs.
 
 ## Demo and video
 
-[Download the standalone HTML](https://raw.githubusercontent.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/main/index.html) using the browser’s **Save link as** command, then open the saved file. The root HTML includes the demo, walkthrough video, and sample downloads in one file. You can also open `demo/index.html` alongside its `demo/samples` directory or use **Interactive demo** inside the running full app. If your browser restricts local HTML, run `python -m http.server 8080` in the repository directory and open http://127.0.0.1:8080.
+[Download the standalone HTML](https://raw.githubusercontent.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/feature/solidcraft-fallback/index.html) using the browser’s **Save link as** command, then open the saved file. The root HTML includes the demo, walkthrough video, and sample downloads in one file. You can also open `demo/index.html` alongside its `demo/samples` directory or use **Interactive demo** inside the running full app. If your browser restricts local HTML, run `python -m http.server 8080` in the repository directory and open http://127.0.0.1:8080.
 
 The interactive demo supports parameter edits, CSV upload, and 2D and 3D previews. Its downloadable files and test results are recorded FreeCAD samples. Run the full app for Excel input, custom CAD generation, and live FreeCAD tests. [Walkthrough video](demo/samples/walkthrough.mp4) · [Acceptance log](outputs/acceptance/pegboard_test_log.csv)
 
