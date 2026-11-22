@@ -1,10 +1,11 @@
 """TechDraw projections plus a dimensioned sheet and a unit-scale profile DXF."""
 import math
-import subprocess
 from html import escape
 
 import FreeCAD as App
 import TechDraw
+
+from exports import convert_svg, write_profile_dxf
 
 V = App.Vector
 VIEWS = [
@@ -23,18 +24,6 @@ def projection(shape, normal, horizontal):
     return [tuple((point.Point.x, point.Point.y) for point in edge.Vertexes)
             for group in groups[:2] if not group.isNull()
             for edge in group.Edges if len(edge.Vertexes)==2]
-
-def write_dxf(path, edges, note):
-    data = [0,"SECTION",2,"HEADER",9,"$ACADVER",1,"AC1015",9,"$INSUNITS",70,4,
-            0,"ENDSEC",0,"SECTION",2,"ENTITIES"]
-    for (x,y),(xx,yy) in edges:
-        data += [0,"LINE",100,"AcDbEntity",8,"CUT_PROFILE",100,"AcDbLine",
-                 10,x,20,y,30,0,11,xx,21,yy,31,0]
-    for index, sentence in enumerate(note):
-        sentence = sentence.replace("×","x").encode("ascii","replace").decode()
-        data += [0,"TEXT",100,"AcDbEntity",8,"ANNOTATIONS",100,"AcDbText",
-                 10,0,20,-8-index*6,30,0,40,3,1,sentence,100,"AcDbText"]
-    path.write_text("\n".join(map(str,data+[0,"ENDSEC",0,"EOF",""])),encoding="ascii")
 
 def draw(doc,p,c,folder,meta):
     doc.TransientDir = str(folder)
@@ -133,6 +122,6 @@ def draw(doc,p,c,folder,meta):
     doc.recompute()
     svg = folder/"pegboard.svg"
     svg.write_text("\n".join(base+lines+marks+["</svg>"]),encoding="utf-8")
-    subprocess.run(["inkscape",str(svg),"--export-type=pdf",f'--export-filename={folder/"pegboard.pdf"}'],
-                   check=True, capture_output=True, timeout=45)
-    write_dxf(folder/"pegboard.dxf",geometry[0][3],notes[:5])
+    convert_svg(folder, "pdf")
+    convert_svg(folder, "png")
+    write_profile_dxf(folder/"pegboard.dxf",geometry[0][3],notes[:5])

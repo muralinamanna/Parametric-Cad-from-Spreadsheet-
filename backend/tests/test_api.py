@@ -64,6 +64,8 @@ def test_real_recompute_drawings_and_acceptance(client):
             assert prefix+b'View' in doc
         assert b"TechDraw::DrawPage" in doc
     assert b"ISO-10303-21" in get("pegboard.step")
+    stl = get("pegboard.stl")
+    assert stl.startswith(b"solid") and b"endsolid" in stl
     assert get("pegboard.pdf").startswith(b"%PDF-")
     assert ET.fromstring(get("pegboard.svg")).tag.endswith("svg")
     assert b"CUT_PROFILE" in get("pegboard.dxf")

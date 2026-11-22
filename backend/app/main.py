@@ -5,10 +5,10 @@ import json
 import os
 import re
 import shutil
-import subprocess
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
+from tempfile import TemporaryDirectory
 from zipfile import BadZipFile, ZipFile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -19,6 +19,7 @@ from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from .engines import CADEngineManager, EngineFailure, EngineMode
 from .parameters import DEFAULTS, calculate, positions
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,6 @@ OUTPUT = ROOT / "outputs"
 JOBS = OUTPUT / "jobs"
 JOBS.mkdir(parents=True, exist_ok=True)
 DIST = ROOT / "frontend" / "dist"
-APP = Path(__file__).resolve().parent
 
 class Parameters(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -37,8 +37,12 @@ class Parameters(BaseModel):
     slotWidth: float
     slotLength: float
     slotSpacing: float
+    units: Literal["mm"] = Field(default="mm", exclude=True)
 
-class JobRequest(BaseModel):
+class EngineRequest(BaseModel):
+    engine: EngineMode | None = None
+
+class JobRequest(EngineRequest):
     parameters: Parameters
     model_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
@@ -78,93 +82,47 @@ def preview(p):
         raise HTTPException(422, str(error)) from error
     return Preview(parameters=p, calculations=metrics,slots=positions(values, metrics))
 
-def cad_command(job_path):
-    runner = os.getenv("FREECAD_PYTHON")
-    env = os.environ.copy()
-    modules = Path(os.getenv("FREECAD_LIB", "/usr/lib/freecad-python3/lib"))
-    resources = Path(os.getenv("FREECAD_RESOURCES", "/usr/share/freecad"))
-    config = job_path.parent / ".runtime"
-    config.mkdir()
-    env["XDG_CONFIG_HOME"] = str(config)
-    if runner or (modules/"FreeCAD.so").is_file():
-        env.setdefault("QT_QPA_PLATFORM", "offscreen")
-        default_python = "/usr/bin/python3" if os.name != "nt" else "python.exe"
-        names = [modules,resources/"Ext",*(resources/"Mod"/n for n in ("Draft","BIM","Arch","Part"))]
-        old = env.get("PYTHONPATH")
-        env["PYTHONPATH"] = os.pathsep.join([*(str(p) for p in names), *([old] if old else [])])
-        if os.name != "nt":
-            library_path = env.get("LD_LIBRARY_PATH")
-            env["LD_LIBRARY_PATH"] = os.pathsep.join([str(modules),*([library_path] if library_path else [])])
-        else:
-            env["PATH"] = str(modules) + os.pathsep + env["PATH"]
-        return [runner or default_python, str(APP/"worker.py"), str(job_path)], env
-    binary = os.getenv("FREECAD_EXECUTABLE") or shutil.which("FreeCAD") or shutil.which("freecad")
-    if not binary:
-        raise HTTPException(503,"Install FreeCAD 1.0+ and configure the worker using the README.")
-    macro = job_path.parent/"run.FCMacro"
-    macro.write_text(
-        f"import sys\nsys.path.insert(0, {str(APP)!r})\n"
-        f"import cad\ncad.main({str(job_path)!r})\n"
-        "if App.ActiveDocument:\n    App.closeDocument(App.ActiveDocument.Name)\n"
-        "Gui.getMainWindow().close()\n",
-        encoding="utf-8",
-    )
-    return [binary, str(macro)], env
-
-def execute(action: str, request=None):
-    model = None
-    if request:
+def execute(action: str, request=None, mode: EngineMode | None = None):
+    parameters = metadata = previous = None
+    if request is not None:
         preview(request.parameters)
+        parameters = request.parameters.model_dump()
         if request.model_id:
-            model = JOBS / request.model_id / "pegboard.FCStd"
-            if not model.is_file():
-                raise HTTPException(404,"The referenced native model is missing.")
+            previous = JOBS / request.model_id
+            if not any((previous / name).is_file() for name in ("pegboard.FCStd","pegboard.sc")):
+                raise HTTPException(404, "The referenced native model is missing.")
+    if isinstance(request, DrawingRequest):
+        metadata = request.metadata.model_dump()
     ident = uuid4().hex
     staging = JOBS / (".tmp-" + ident)
     staging.mkdir()
-    data = {"action": action, "output": str(staging)}
-    if request:
-        data.update(parameters=request.parameters.model_dump(), model=str(model) if model else None)
-    if isinstance(request, DrawingRequest):
-        data["metadata"] = request.metadata.model_dump()
-    path = staging/"job.json"
-    path.write_text(json.dumps(data))
     try:
-        command, env = cad_command(path)
         try:
-            completed = subprocess.run(command,env=env,capture_output=True,text=True,timeout=180)
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise HTTPException(503,f"The FreeCAD worker did not complete. {error}") from error
-        result_path = staging/"result.json"
-        if not result_path.is_file():
-            tail = (completed.stderr or completed.stdout or "").strip()[-1200:]
-            raise HTTPException(503, "FreeCAD produced no result. " + tail)
-        result = json.loads(result_path.read_text())
-        if "error" in result:
-            raise HTTPException(422,f'FreeCAD operation failed. {result["error"]}')
-        if action == "health":
-            return result
-        files = {
-            "tests": ["pegboard_test_log.csv","validation_report.json",*(f"case_{i}.FCStd" for i,case in enumerate(result.get("cases",[]),1) if case["result"]=="PASS")],
-            "drawing": ["pegboard.FCStd","pegboard.step","pegboard.svg","pegboard.pdf","pegboard.dxf"],
-        }.get(action, ["pegboard.FCStd","pegboard.step"])
-        if any(not (staging/name).is_file() or (staging/name).stat().st_size == 0 for name in files):
-            raise HTTPException(503,"FreeCAD produced incomplete export files.")
-        final = JOBS/ident
-        final.mkdir()
-        for name in files:
-            (staging/name).replace(final/name)
-        return JobResponse(id=ident, files={name:f"/api/exports/{ident}/{name}" for name in files}, evidence=result)
+            result = CADEngineManager(mode or (request.engine if request else None)).execute(
+                staging, action, parameters, metadata, previous)
+        except EngineFailure as error:
+            raise HTTPException(error.status, str(error), headers={"X-CAD-Engine-Status": "failed"}) from error
+        except ValueError as error:
+            raise HTTPException(503, str(error)) from error
+        publish = staging / "publish"
+        publish.mkdir()
+        for name in result.files:
+            (result.folder / name).replace(publish / name)
+        if request:
+            (publish / "preview.json").write_text(preview(request.parameters).model_dump_json(), encoding="utf-8")
+        publish.replace(JOBS / ident)
+        return JobResponse(id=ident, files={name:f"/api/exports/{ident}/{name}" for name in result.files},
+                           evidence=result.evidence)
     finally:
         shutil.rmtree(staging,ignore_errors=True)
 
 @app.get("/api/health")
 def health():
     try:
-        return {"status":"ready","freecad":execute("health")["version"],
-                "pdf":shutil.which("inkscape") is not None}
-    except HTTPException as error:
-        return {"status":"unavailable","detail":error.detail}
+        with TemporaryDirectory(dir=JOBS, prefix=".health-") as folder:
+            return CADEngineManager().health(Path(folder))
+    except ValueError as error:
+        return {"status":"unavailable","detail":str(error),"pdf":False}
 
 @app.get("/api/parameters/defaults", response_model=Preview)
 def defaults():
@@ -207,7 +165,7 @@ async def upload(file: UploadFile = File(...)):
             raise ValueError("Choose a .csv or .xlsx file.")
         values = {}
         for row in rows:
-            if not row or row[0] not in DEFAULTS:
+            if not row or (row[0] not in DEFAULTS and row[0] != "units"):
                 continue
             if row[0] in values or len(row)<2:
                 raise ValueError(f"Missing or duplicate value for {row[0]}.")
@@ -220,9 +178,7 @@ async def upload(file: UploadFile = File(...)):
         raise HTTPException(422,f"Invalid spreadsheet. {error}") from error
 
 def model_response(action, request):
-    response = execute(action, request)
-    (JOBS/response.id/"preview.json").write_text(preview(request.parameters).model_dump_json())
-    return response
+    return execute(action, request)
 
 @app.post("/api/model/generate", response_model=JobResponse)
 def generate(job: JobRequest):
@@ -239,12 +195,12 @@ def drawing(job: DrawingRequest):
     return model_response("drawing",job)
 
 @app.post("/api/tests/run", response_model=JobResponse)
-def tests():
-    return execute("tests")
+def tests(options: EngineRequest | None = None):
+    return execute("tests", mode=options.engine if options else None)
 
 @app.get("/api/exports/{job_id}/{file_id}")
 def download(job_id: str, file_id: str):
-    if not re.fullmatch("[a-f0-9]{32}",job_id) or not re.fullmatch(r"[a-zA-Z0-9_]+\.(FCStd|step|svg|pdf|dxf|csv|json)",file_id) or file_id=="preview.json":
+    if not re.fullmatch("[a-f0-9]{32}",job_id) or not re.fullmatch(r"[a-zA-Z0-9_]+\.(FCStd|sc|step|svg|png|pdf|dxf|csv|json|stl|glb)",file_id) or file_id=="preview.json":
         raise HTTPException(404,"Export missing.")
     path = JOBS/job_id/file_id
     if not path.is_file() or path.is_symlink():

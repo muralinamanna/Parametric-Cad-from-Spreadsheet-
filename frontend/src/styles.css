@@ -114,3 +114,71 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 @media(max-width:920px){.hero-end{align-items:flex-end;flex-direction:column;gap:8px}.workspace,.lower{grid-template-columns:minmax(285px,315px) minmax(0,1fr)}.preview-head{padding:12px 11px;gap:6px}.view-controls{gap:4px}.segmented button{padding:5px 6px}}
 @media(max-width:740px){.topbar{padding:10px 14px;min-height:60px;gap:9px}.brand{font-size:13px}.brand span{font-size:8px}.logo{width:31px;height:31px}nav{display:none}main{padding:23px 12px 0}.hero{flex-direction:column;align-items:flex-start}.hero-end{flex-direction:row;align-items:center;flex-wrap:wrap}.workspace,.lower{grid-template-columns:1fr}.preview-canvas{min-height:230px}.preview-head{padding:13px}.lower{margin-top:12px}}
 @media(max-width:740px){.topbar{display:grid;grid-template-columns:1fr auto}.topbar nav{display:flex;grid-column:1 / -1;grid-row:2;gap:19px;min-height:29px}.topbar .video-button{grid-column:2;grid-row:1}}
+.engine-panel{margin:0 0 15px;padding:12px 15px;font-size:12px;color:#405a7b}
+.engine-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.engine-controls label{display:flex;align-items:center;gap:8px;font-weight:650;color:#17263b}
+.engine-controls select{font:inherit;border:1px solid #d5e0ec;background:#f8fafd;border-radius:5px;padding:5px 8px;color:#233c5c}
+.engine-panel p{margin:6px 0 0}
+.fallback-reason{display:block;overflow-wrap:anywhere}
+.demo-note>svg{flex:none;align-self:flex-start;margin-top:2px}
+.demo-engine-help{padding:6px 0 0;font-size:12px}
+.demo-engine-help summary{display:list-item;font-weight:600}
+.hero-end{flex-wrap:wrap;justify-content:flex-end}
+.cad-viewer{width:min(900px,94vw)}
+.cad-viewer-canvas{position:relative;height:min(60vh,520px);background:#eff5fc}
+.cad-viewer-canvas p{padding:14px}
+.scene-mount{position:absolute;inset:0}
+.scene>p{position:relative}
+@media(max-width:740px){.hero-end{justify-content:flex-start}}
+.cad-viewer{width:min(1512px,96vw);max-height:94dvh}
+.review-panes{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.74fr);gap:10px;padding:10px;background:#f3f6fa}
+.review-pane{min-width:0;background:white;border:1px solid #dce5f0;border-radius:8px;overflow:hidden}
+.review-pane-heading{min-height:40px;padding:11px 12px;border-bottom:1px solid #e4edf7}
+.review-pane-heading h3,.review-details h4{font-size:13px;margin:0}
+.review-3d{display:flex;flex-direction:column}
+.review-3d .cad-viewer-canvas{height:auto;flex:1;min-height:280px}
+.review-downloads{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid #e4edf7;color:#556780;font-size:11px}
+.review-tabs{display:inline-flex;margin:8px 9px 0}
+.review-views{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px}
+.review-views[hidden]{display:none}
+.review-views figure{margin:0;border:1px solid #e4edf7;border-radius:5px;overflow:hidden;background:#f2f7fc}
+.review-views canvas{display:block;width:100%;height:auto;aspect-ratio:320/208}
+.review-views figcaption{text-align:center;font-size:11px;padding:3px 4px;background:white;color:#3d587c}
+.review-sheet{display:block;width:calc(100% - 18px);margin:9px;border:1px solid #e4edf7}
+.product-specs,.product-definitions{margin:0;padding:10px 11px;font-size:11px;line-height:1.35}
+.product-specs{display:grid;grid-template-columns:1fr 1fr;gap:8px 5px}
+.product-specs dt,.product-definitions dt{color:#475f7c}
+.product-specs dd,.product-definitions dd{margin:0}
+.product-specs dd{font-weight:650}
+.review-details h4{padding:8px 11px 0}
+.product-definitions dt{font-weight:650}
+.product-definitions dd+dt{margin-top:7px}
+@media(max-width:900px){.review-panes{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.review-details{grid-column:1 / -1}}
+@media(max-width:620px){.review-panes{grid-template-columns:1fr}.review-3d .cad-viewer-canvas{min-height:255px}}
+.scene-viewport{position:absolute;inset:0}
+.scene-viewport>p{position:relative}
+.scene-with-toolbar{display:flex;flex-direction:row}
+.scene-with-toolbar .scene-viewport{position:relative;inset:auto;flex:1;min-width:0}
+.cad-toolbar{padding:5px;display:flex;flex-direction:column;gap:5px;flex:none;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;background:#f6f9fd;border-right:1px solid #dce6f2;text-align:left}
+.cad-toolbar>div{display:flex;flex-direction:column;gap:2px;flex:none}
+.cad-toolbar>div+div{padding-top:3px;border-top:1px solid #e3ebf6}
+.cad-toolbar button{display:grid;place-items:center;width:30px;height:27px;padding:0;border:1px solid #d5e2f0;border-radius:5px;background:white;color:#284867}
+.cad-toolbar button svg{width:17px;height:17px;pointer-events:none}
+.cad-toolbar button[aria-pressed=true]{background:#dbeafe;border-color:#8fb1dc;color:#12477e}
+.cad-toolbar button:hover:not(:disabled){background:#eaf2fc}
+.review-paper{margin:9px;padding:9px;border:1px solid #bfcad8;background:#fff;gap:10px}
+.review-paper figure{background:#fff;border:0;border-radius:0}
+.review-paper figcaption{text-transform:uppercase;letter-spacing:.04em;color:#25364b}
+.review-sheet{background:#fff;box-shadow:0 1px 4px #25364b26}
+.review-3d .cad-viewer-canvas{min-height:320px}
+@media(max-width:620px){.review-3d .cad-viewer-canvas{min-height:340px}}
+.drawing-tools{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:8px 9px 4px;color:#284867}
+.drawing-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:29px;height:29px;padding:0 6px;border:1px solid #d5e2f0;border-radius:5px;background:white;color:inherit;font-size:11px}
+.drawing-tools button[aria-pressed=true]{background:#dbeafe;border-color:#8fb1dc}
+.drawing-tools svg{width:15px;height:15px}
+.drawing-tools output{font-size:11px;font-variant-numeric:tabular-nums;text-align:center;min-width:36px}
+.drawing-layer-note{padding:0 9px;margin:4px 0 6px;color:#516681;font-size:11px}
+.drawing-viewport{height:clamp(300px,52vh,570px);overflow:auto;overscroll-behavior:contain;background:#f3f6fa}
+.drawing-pan{cursor:grab;touch-action:none;user-select:none}
+.drawing-pan:active{cursor:grabbing}
+.drawing-scale{display:flow-root;min-height:100%;margin-inline:auto}

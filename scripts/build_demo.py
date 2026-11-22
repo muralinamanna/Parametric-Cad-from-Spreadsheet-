@@ -27,8 +27,8 @@ if scripts != 1 or styles != 1:
     raise RuntimeError("Standalone HTML is missing the inlined application assets.")
 
 mime_types = {
-    ".csv": "text/csv", ".dxf": "application/dxf", ".fcstd": "application/octet-stream",
-    ".json": "application/json", ".mp4": "video/mp4", ".pdf": "application/pdf",
+    ".csv": "text/csv", ".glb": "model/gltf-binary", ".dxf": "application/dxf", ".fcstd": "application/octet-stream",
+    ".json": "application/json", ".mp4": "video/mp4", ".png": "image/png", ".pdf": "application/pdf",
     ".step": "application/step", ".svg": "image/svg+xml",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }

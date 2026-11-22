@@ -1,0 +1,58 @@
+name: CAD checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m pip install -r backend/requirements.txt ruff
+      - run: ruff check --select E9,F63,F7,F82 backend scripts
+      - run: PYTHONPATH=backend python -m pytest -q backend/tests
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: python scripts/build_demo.py
+
+  linux-cad:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    timeout-minutes: 20
+    steps:
+      - run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl freecad git inkscape python3-venv libgl1-mesa-dri
+      - uses: actions/checkout@v4
+      - name: Install and verify SolidCraft 0.45.0
+        run: |
+          mkdir -p /tmp/solidcraft
+          cd /tmp/solidcraft
+          release=https://github.com/tangency-labs/solidcraft/releases/download/v0.45.0
+          curl --fail --location --silent --show-error --retry 3 -O "$release/SHA256SUMS.txt"
+          curl --fail --location --silent --show-error --retry 3 -O "$release/solidcraft-0.45.0-linux-x86_64.tar.gz"
+          sha256sum --ignore-missing --check SHA256SUMS.txt
+          tar -xzf solidcraft-0.45.0-linux-x86_64.tar.gz
+          echo "SOLIDCRAFT_CLI=/tmp/solidcraft/solidcraft-0.45.0-linux-x86_64/bin/solidcraft-cli" >> "$GITHUB_ENV"
+      - name: Run both real CAD integrations
+        env:
+          RUN_CAD_TESTS: '1'
+          RUN_SOLIDCRAFT_TESTS: '1'
+          PYTHONPATH: backend
+        run: |
+          python3 -m venv /tmp/engineering-tests
+          /tmp/engineering-tests/bin/pip install -r backend/requirements.txt
+          /tmp/engineering-tests/bin/python -m pytest -q backend/tests
