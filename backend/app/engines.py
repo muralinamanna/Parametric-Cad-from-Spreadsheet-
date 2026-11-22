@@ -57,6 +57,7 @@ def cad_command(job_path):
 class CADEngine(Protocol):
     name: str
     native: str
+    viewer: str
 
     def health_check(self, folder: Path) -> str: ...
 
@@ -67,6 +68,7 @@ class CADEngine(Protocol):
 class FreeCADEngine:
     name = "freecad"
     native = "pegboard.FCStd"
+    viewer = "pegboard.stl"
 
     def _worker(self, folder, **data):
         path = folder / "job.json"
@@ -98,6 +100,7 @@ class FreeCADEngine:
 class SolidCraftEngine:
     name = "solidcraft"
     native = solidcraft.NATIVE
+    viewer = "pegboard.glb"
 
     def health_check(self, folder):
         return solidcraft.version()
@@ -186,7 +189,7 @@ class CADEngineManager:
                 else:
                     if not result["shapeValid"] or not result["recomputeSuccessful"]:
                         raise ValueError("CAD geometry or recomputation did not pass validation.")
-                    files = [engine.native,"pegboard.step"]
+                    files = [engine.native,"pegboard.step",engine.viewer]
                     if action == "drawing":
                         if not result.get("drawing",{}).get("validated"):
                             raise ValueError("CAD drawing did not pass validation.")

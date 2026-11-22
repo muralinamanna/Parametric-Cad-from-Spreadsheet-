@@ -1,4 +1,6 @@
 """Conversions shared by both drawing engines."""
+import json
+import struct
 import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
@@ -39,6 +41,22 @@ def validate_files(folder: Path, names):
             member = "Document.xml" if suffix == ".fcstd" else "document.json"
             with ZipFile(path) as archive:
                 valid = member in archive.namelist() and archive.getinfo(member).file_size > 0
+        elif suffix == ".glb":
+            with path.open("rb") as file:
+                header = file.read(20)
+                if len(header) != 20:
+                    raise ValueError(f"Incomplete GLB header: {name}")
+                magic, version, length, manifest_size, chunk = struct.unpack("<4sIII4s", header)
+                if (magic, version, length, chunk) != (b"glTF", 2, path.stat().st_size, b"JSON") or not 0 < manifest_size <= length - 20:
+                    raise ValueError(f"Invalid GLB header: {name}")
+                manifest = json.loads(file.read(manifest_size))
+                valid = bool(manifest.get("meshes") and manifest.get("scenes"))
+        elif suffix == ".stl":
+            data = path.read_bytes()
+            count = struct.unpack_from("<I", data, 80)[0] if len(data) >= 84 else 0
+            valid = (count > 0 and len(data) == 84 + 50 * count) or (
+                data.startswith(b"solid") and b"facet normal" in data and
+                data.rstrip().splitlines()[-1].startswith(b"endsolid"))
         elif suffix == ".svg":
             valid = ElementTree.parse(path).getroot().tag == "{http://www.w3.org/2000/svg}svg"
         elif suffix == ".dxf":

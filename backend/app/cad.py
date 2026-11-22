@@ -204,6 +204,7 @@ def main(job_file):
                 draw(doc,p,c,folder,job["metadata"])
             doc.saveAs(str(folder/"pegboard.FCStd"))
             doc.Pegboard.Shape.exportStep(str(folder/"pegboard.step"))
+            doc.Pegboard.Shape.exportStl(str(folder/"pegboard.stl"))
         response.write_text(json.dumps(result))
     except Exception as error:
         import traceback

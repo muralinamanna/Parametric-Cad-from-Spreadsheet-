@@ -200,7 +200,7 @@ def tests(options: EngineRequest | None = None):
 
 @app.get("/api/exports/{job_id}/{file_id}")
 def download(job_id: str, file_id: str):
-    if not re.fullmatch("[a-f0-9]{32}",job_id) or not re.fullmatch(r"[a-zA-Z0-9_]+\.(FCStd|sc|step|svg|png|pdf|dxf|csv|json)",file_id) or file_id=="preview.json":
+    if not re.fullmatch("[a-f0-9]{32}",job_id) or not re.fullmatch(r"[a-zA-Z0-9_]+\.(FCStd|sc|step|svg|png|pdf|dxf|csv|json|stl|glb)",file_id) or file_id=="preview.json":
         raise HTTPException(404,"Export missing.")
     path = JOBS/job_id/file_id
     if not path.is_file() or path.is_symlink():

@@ -162,6 +162,8 @@ def build_model(folder, p, source=None, *, export_step=True):
         steps.append(command("parameters.change", changes=p))
     else:
         steps = create_steps(p)
+    if export_step:
+        steps.append(command("file.export", path="pegboard.glb", format="glb"))
     run(folder, steps, model=source, save=NATIVE, step=export_step)
     evidence, edges = inspect_geometry(*run(folder, INSPECT, model=folder/NATIVE), p)
     if export_step:

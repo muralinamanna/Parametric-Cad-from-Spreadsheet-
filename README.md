@@ -50,6 +50,7 @@ Download the package for your platform from the official [SolidCraft v0.45.0 rel
 | --- | --- | --- |
 | Native editable model | FCStd with Parameters cells and Draft array | SC with editable parameters, master cut, and feature pattern |
 | STEP | Native solid export | Native CLI solid export |
+| Browser 3D view | STL tessellation of the generated solid | Native GLB export with materials |
 | SVG drawing | TechDraw projections and A4 sheet | Native A3 sheet, with views and associative board dimensions |
 | PNG drawing | Inkscape from SVG | Native PNG export |
 | PDF drawing | Inkscape from SVG | Inkscape from SVG |
@@ -65,13 +66,13 @@ The adapter invokes a separately installed third-party program by Tangency Labs.
 
 [Download the standalone HTML](https://raw.githubusercontent.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/feature/solidcraft-fallback/index.html) using the browser’s **Save link as** command, then open the saved file. The root HTML includes the demo, walkthrough video, and sample downloads in one file. You can also open `demo/index.html` alongside its `demo/samples` directory or use **Interactive demo** inside the running full app. If your browser restricts local HTML, run `python -m http.server 8080` in the repository directory and open http://127.0.0.1:8080.
 
-The interactive demo supports parameter edits, CSV upload, and 2D and 3D previews. Its downloadable files and test results are recorded FreeCAD samples. Run the full app for Excel input, custom CAD generation, and live FreeCAD tests. [Walkthrough video](demo/samples/walkthrough.mp4) · [Acceptance log](outputs/acceptance/pegboard_test_log.csv)
+The interactive demo supports parameter edits, CSV upload, and 2D and 3D previews. **View in browser** opens an embedded nominal SolidCraft GLB generated from the 80-slot sample. Its downloadable files and test results are recorded FreeCAD samples. Run the full app for Excel input, custom CAD generation, and live FreeCAD tests. [Walkthrough video](demo/samples/walkthrough.mp4) · [Acceptance log](outputs/acceptance/pegboard_test_log.csv)
 
 ## Use the engineering workflow
 
 1. Load `templates/pegboard_parameters.xlsx` or its CSV equivalent. Column A contains exact aliases and column B contains values in millimetres. Excel formula cells require cached numeric values. An import applies a valid set immediately. Edits in the form apply with **Apply parameters**.
 2. Inspect the slot positions in **2D Top** or rotate the solid preview in **3D Orbit**. The browser 3D view builds a lightweight visual extrusion from validated coordinates. The actual CAD artifact comes from FreeCAD.
-3. Select **Generate CAD model**. Subsequent generations from the same page reopen the previous native file and edit only the seven parameter cells. Validation failures leave the last successful artifact and preview available. Select **Generate 2D drawing** to produce the drawing sheet and its exports.
+3. Select **Generate CAD model**, then **View in browser** to orbit and zoom the mesh exported by the engine that completed the job. The viewer also offers a GLB or STL download. Subsequent generations from the same page reopen the previous native file and edit only the seven parameter cells. Validation failures leave the last successful artifact and preview available. Select **Generate 2D drawing** to produce the drawing sheet and its exports.
 4. Run **Run three-case tests** to regenerate all three variants in one FreeCAD document and download the CSV log, JSON report and native case files.
 
 ### Source document and equations

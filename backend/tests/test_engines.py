@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import struct
 from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import ZipFile
@@ -89,6 +90,11 @@ def test_excel_to_solidcraft_drawing_when_freecad_is_missing(client, monkeypatch
     original_native = get("pegboard.sc")
     with ZipFile(io.BytesIO(original_native)) as native:
         assert json.loads(native.read("container.json"))["format"] == "solidcraft-container/1"
+    glb = get("pegboard.glb")
+    assert struct.unpack_from("<4sII", glb) == (b"glTF", 2, len(glb))
+    manifest_size = struct.unpack_from("<I", glb, 12)[0]
+    manifest = json.loads(glb[20:20+manifest_size])
+    assert manifest["meshes"] and manifest["scenes"]
     svg = ElementTree.fromstring(get("pegboard.svg"))
     assert svg.tag.endswith("svg") and "mm" in svg.attrib["width"]
     assert get("pegboard.png").startswith(b"\x89PNG\r\n\x1a\n")

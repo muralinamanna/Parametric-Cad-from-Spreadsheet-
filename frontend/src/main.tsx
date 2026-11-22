@@ -1,6 +1,6 @@
 import {lazy, Suspense, useEffect,useRef,useState} from 'react'
 import {createRoot} from 'react-dom/client'
-import {Activity, ArrowDownToLine, ArrowRight, Box, Check, ChevronDown, CircleHelp, ClipboardCheck, FileSpreadsheet, FileText, Grid2X2, Layers3, LoaderCircle, Maximize2, Play, RotateCcw, ScanLine, Upload, X} from 'lucide-react'
+import {Activity, ArrowDownToLine, ArrowRight, Box, Check, ChevronDown, CircleHelp, Eye, ClipboardCheck, FileSpreadsheet, FileText, Grid2X2, Layers3, LoaderCircle, Maximize2, Play, RotateCcw, ScanLine, Upload, X} from 'lucide-react'
 import {calculate, defaults, fields, number} from './model'
 import type {Input, Key, Parameters, Preview} from './model'
 import './styles.css'
@@ -25,6 +25,7 @@ function sampleUrl(name:string) {
 }
 const captionUrl='data:text/vtt;charset=utf-8,'+encodeURIComponent(captions)
 const resultFiles=['pegboard.FCStd','pegboard.sc','pegboard.step','pegboard.dxf','pegboard.svg','pegboard.png','pegboard.pdf']
+const modelFiles=[...resultFiles,'pegboard.glb','pegboard.stl']
 const formatNames=['FCStd','SolidCraft SC','STEP','DXF','SVG','PNG','PDF']
 const cases=[['Minimum',30,49],['Nominal',300,200],['Wider',360,200]] as const
 const downloadable:Record<string,string>={
@@ -97,6 +98,11 @@ function App() {
   const [dimensions,setDimensions]=useState(true)
   const [expanded,setExpanded]=useState(false)
   const [material,setMaterial]=useState('')
+  const viewerDialog=useRef<HTMLDialogElement>(null)
+  const [viewerOpen,setViewerOpen]=useState(false)
+  const glb=demo?sampleUrl('pegboard.glb'):files['pegboard.glb']
+  const stl=files['pegboard.stl']
+  const viewerSource=glb?{url:glb,format:'glb' as const}:stl?{url:stl,format:'stl' as const}:null
   const video=useRef<HTMLDialogElement>(null)
   const upload=useRef<HTMLInputElement>(null)
   useEffect(()=>{if(!demo) api<Health>('/health').then(setHealth).catch(()=>setHealth({}))},[demo])
@@ -113,7 +119,7 @@ function App() {
     const note=changes.filter(([,a,b])=>a!==b).map(([axis,a,b,side,min,pitch])=>`${axis} count ${a} → ${b}. The ${side} threshold for ${Math.max(a,b)} ${axis.toLowerCase()}s is ${number(min+(Math.max(a,b)-1)*pitch)} mm.`).join(' ')
     setCurrent(model);setDraft(model.parameters);setMessage(note||'Parameters applied. The pattern count is unchanged.');setError('')
     setModelEvidence(undefined);setEngineEvidence(undefined)
-    if (!demo) setFiles(old=>Object.fromEntries(Object.entries(old).filter(([name])=>!resultFiles.includes(name))))
+    if (!demo) setFiles(old=>Object.fromEntries(Object.entries(old).filter(([name])=>!modelFiles.includes(name))))
   }
   async function act(label:string, callback:()=>Promise<void>) {
     setBusy(label);setError('')
@@ -152,7 +158,7 @@ function App() {
         setMessage(action==='drawing'?'Four-view drawing and CAD files are ready.':'Solid verified against the spreadsheet and opening geometry.')
       }
       setEngineEvidence(result.evidence)
-      setFiles(old=>({...Object.fromEntries(Object.entries(old).filter(([name])=>action==='tests'?!name.startsWith('case_'):!resultFiles.includes(name))),...result.files}))
+      setFiles(old=>({...Object.fromEntries(Object.entries(old).filter(([name])=>action==='tests'?!name.startsWith('case_'):!modelFiles.includes(name))),...result.files}))
     })
   }
   async function loadFile(file:File) {
@@ -185,7 +191,11 @@ function App() {
     <main>
       <section className="hero">
         <div><div className="eyebrow"><span/> MODEL WORKSPACE <small>/</small> PB-001</div><h1>Parametric pegboard</h1><p>Drive a parametric model and manufacturing drawing from spreadsheet dimensions.</p></div>
-        <div className="hero-end"><span className="mode"><span className={demo||version||health?.engines?.solidcraft.available?'green':'amber'}/>{demo?'Interactive demo':version?'FreeCAD '+version:health?.engines?.solidcraft.available?'SolidCraft '+health.engines.solidcraft.version:health?'CAD engines offline':'Checking CAD engines'}</span><button className="btn primary" disabled={!!busy} onClick={()=>cad('model')}><Box size={17}/> Generate CAD model</button></div>
+        <div className="hero-end"><span className="mode"><span className={demo||version||health?.engines?.solidcraft.available?'green':'amber'}/>{demo?'Interactive demo':version?'FreeCAD '+version:health?.engines?.solidcraft.available?'SolidCraft '+health.engines.solidcraft.version:health?'CAD engines offline':'Checking CAD engines'}</span><button className="btn primary" disabled={!!busy} onClick={()=>cad('model')}><Box size={17}/> Generate CAD model</button>
+          <button className="btn" disabled={!!busy||!viewerSource}
+            title={viewerSource?undefined:'Generate a CAD model to enable the viewer'}
+            onClick={()=>{viewerDialog.current?.showModal();setViewerOpen(true)}}><Eye size={16}/> View in browser</button>
+        </div>
       </section>
       {demo&&<aside className="demo-note">
         <CircleHelp size={16} aria-hidden="true"/>
@@ -268,6 +278,21 @@ function App() {
       </div>
       <footer>Spreadsheet to Drawing <span>Millimetres · XY datum · Parametric CAD</span></footer>
     </main>
+    <dialog aria-labelledby="cad-viewer-title" ref={viewerDialog} className="video-dialog cad-viewer"
+      onClose={()=>setViewerOpen(false)}>
+      <div className="panel-head">
+        <div><h2 id="cad-viewer-title">3D CAD model</h2>
+          <p>{demo?'Nominal SolidCraft sample · 300 × 200 mm · 80 slots':viewerSource?.format==='glb'?'SolidCraft GLB':'FreeCAD STL'} · Drag to orbit, scroll to zoom</p>
+        </div>
+        <button className="square" aria-label="Close CAD viewer" onClick={()=>viewerDialog.current?.close()}><X size={18}/></button>
+      </div>
+      {viewerOpen&&viewerSource&&<div className="cad-viewer-canvas">
+        <Suspense fallback={<p role="status">Loading the CAD viewer…</p>}><Scene source={viewerSource}/></Suspense>
+      </div>}
+      {viewerSource&&<a className="template video-download" href={viewerSource.url} download={`pegboard.${viewerSource.format}`}>
+        <ArrowDownToLine size={15}/> Download {viewerSource.format.toUpperCase()}
+      </a>}
+    </dialog>
     <dialog aria-label="Spreadsheet to Drawing walkthrough" ref={video} onClose={()=>video.current?.querySelector('video')?.pause()} className="video-dialog">
       <div className="panel-head"><div className="icon-tile"><Play size={19}/></div><div><h2>Spreadsheet to Drawing walkthrough</h2><p>Inputs, CAD recomputation, drawings and test evidence</p></div><button className="square" onClick={()=>video.current?.close()} aria-label="Close video"><X size={18}/></button></div>
       <video controls preload="none" playsInline src={sampleUrl('walkthrough.mp4')}><track src={captionUrl} kind="captions" srcLang="en" label="English" default/></video>
