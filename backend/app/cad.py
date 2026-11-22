@@ -1,5 +1,6 @@
 """Executed inside FreeCAD's Python interpreter by the local worker."""
 import csv
+from acceptance import CASES, HEADERS
 import json
 from pathlib import Path
 
@@ -141,11 +142,6 @@ def check(doc, p):
             errors.append("Minimum edge clearance violated.")
     stats.update(topOpenings=top, bottomOpenings=bottom, errors=errors)
     return stats
-
-CASES = [("Smallest valid board",30,49,1,1), ("Nominal board",300,200,5,16), ("Wider board",360,200,5,19)]
-HEADERS = ["Test Case","Board Width","Board Height","Board Thickness","Expected Rows","Actual Rows",
-           "Expected Columns","Actual Columns","Expected Slots","Actual Slots","Minimum Edge Clearance",
-           "Shape Valid","Broken References","Recompute Successful","Result"]
 
 def run_tests(folder):
     doc = build(DEFAULTS)

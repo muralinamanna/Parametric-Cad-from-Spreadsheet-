@@ -6,7 +6,7 @@ The app builds a rectangular pegboard with vertical through-slots from seven mil
 
 The tested configuration is Debian 13, FreeCAD 1.0.0 with its Python 3.13 bindings, Inkscape, Python 3.12 for the web API, and Node 22 or later for frontend development. The repository includes a prebuilt frontend. Node is needed to rebuild it.
 
-1. Install FreeCAD 1.0 or a compatible release, Python 3.11+, and Inkscape. On compatible Debian releases, install `freecad inkscape python3-venv` from your package manager.
+1. Install Python 3.11+, Inkscape, and at least one CAD engine. FreeCAD 1.0 or a compatible release is the default. To use SolidCraft alone or as a fallback, follow the SolidCraft installation section below. On compatible Debian releases, install `freecad inkscape python3-venv` from your package manager.
 2. From the extracted project directory, set up the API environment.
 
    ```sh
@@ -24,6 +24,42 @@ The tested configuration is Debian 13, FreeCAD 1.0.0 with its Python 3.13 bindin
 On Debian the API detects `/usr/lib/freecad-python3/lib/FreeCAD.so` and starts `/usr/bin/python3` in a dedicated worker process. The API's virtual environment can use a different Python version. Set `FREECAD_PYTHON`, `FREECAD_LIB`, and `FREECAD_RESOURCES` for another compatible module installation. The worker preloads Draft, BIM or Arch, Part, and FreeCAD's bundled Python extensions from the resource tree. Add Inkscape to PATH for PDF generation.
 
 For Windows, activate `.venv\Scripts\Activate.ps1`, set `$env:PYTHONPATH="backend"`, and start `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`. On macOS, the same Uvicorn command works after `export PYTHONPATH=backend`. Set `FREECAD_EXECUTABLE` to the full executable path for the installed desktop build if detection fails. The fallback invokes a temporary FreeCAD macro and requires a working graphical session. On platforms where the GUI needs it, set `QT_QPA_PLATFORM` to the platform plugin such as `windows`, `cocoa`, or `xcb`. The Windows and macOS runners have setup paths in source and were not exercised here.
+
+## CAD engine switching
+
+The full app normalizes spreadsheet dimensions in millimetres and checks the pattern before starting either CAD engine. Its **CAD engine** control offers **Auto**, **FreeCAD only**, and **SolidCraft only**. The control shows both versions or availability, the last verified engine, and whether the recompute and drawing passed.
+
+**Auto** tries FreeCAD first by default. If its availability check, CAD operation, geometry verification, drawing, or required export fails, the app tries SolidCraft once with the same validated parameters. SolidCraft must finish and pass verification before any output is published. Input validation errors stop before either engine runs. The original job files remain downloadable when a later recompute fails. When switching engines, the app rebuilds from the same spreadsheet values because FCStd and SC store different feature histories. Recomputes within the same engine reopen the prior native document.
+
+Set these variables before starting the full app to change the defaults:
+
+```sh
+export CAD_ENGINE=auto
+export CAD_PRIMARY=freecad
+export CAD_FALLBACK=solidcraft
+export CAD_FALLBACK_ENABLED=true
+```
+
+The API accepts an optional `engine` field on generate, recompute, drawing, and test requests. The health response lists both engines and the configured defaults. A completed job includes engine version, fallback reason, and ordered attempts in `evidence`. The server logs each attempt’s elapsed time and outcome.
+
+### Install SolidCraft
+
+Download the package for your platform from the official [SolidCraft v0.45.0 release](https://github.com/tangency-labs/solidcraft/releases/tag/v0.45.0), verify the release checksum, and put the bundled `solidcraft-cli` on PATH or set `SOLIDCRAFT_CLI` to its full executable path. On PowerShell use `$env:SOLIDCRAFT_CLI="C:\path\to\solidcraft-cli.exe"`. Check `solidcraft-cli --version` or the CAD engine panel before running a job. This adapter pins **0.45.0** because it relies on that CLI’s drawing commands and result schema. The Linux x86-64 release was tested. Windows and macOS setup paths depend on the platform’s package and have not been exercised here.
+
+| Output | FreeCAD | SolidCraft 0.45.0 |
+| --- | --- | --- |
+| Native editable model | FCStd with Parameters cells and Draft array | SC with editable parameters, master cut, and feature pattern |
+| STEP | Native solid export | Native CLI solid export |
+| SVG drawing | TechDraw projections and A4 sheet | Native A3 sheet, with views and associative board dimensions |
+| PNG drawing | Inkscape from SVG | Native PNG export |
+| PDF drawing | Inkscape from SVG | Inkscape from SVG |
+| DXF cut profile | 1:1 mm top projection | 1:1 mm profile from verified model edges |
+
+Install Inkscape on PATH for the complete drawing job. Since PDF is a required output, an Inkscape failure can affect drawing jobs in both engines. DXF is a manufacturing profile with notes. SVG, PNG and PDF contain the four-view drawing.
+
+SolidCraft geometry is built and recomputed through the official JSON command CLI. The application reopens the saved native model and checks its closed shell, expected volume, every through-slot edge on both faces, and the minimum edge clearances. Drawings must contain four drawn views, three measured board dimensions and the slot, pitch, and datum callouts. The pinned CLI exposes `parameters.change` for recomputation, `model.edges` and `inspect.measure` for verification, and `drawing.view.standard`, `drawing.dimension.add` and `drawing.export` for native drawings. The STEP export is reopened and checked for a closed body with the native volume. SolidCraft also offers a [headless MCP server](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/docs/mcp.md). This application runs the [JSON command CLI](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/docs/scripts.md) in isolated subprocesses.
+
+The adapter invokes a separately installed third-party program by Tangency Labs. SolidCraft code offers [MIT](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/LICENSE-MIT) or [Apache-2.0](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/LICENSE-APACHE) terms. Its branding and interface assets have [separate terms](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/LICENSE-BRAND). The project ships its own web interface and does not redistribute SolidCraft binaries, branding, or UI assets.
 
 ## Demo and video
 
@@ -62,10 +98,10 @@ Open an FCStd file in FreeCAD 1.0 or newer. Double-click **Parameters** and edit
 
 ```sh
 PYTHONPATH=backend python -m pytest -q backend/tests
-PYTHONPATH=backend RUN_CAD_TESTS=1 python -m pytest -q backend/tests
+PYTHONPATH=backend RUN_CAD_TESTS=1 RUN_SOLIDCRAFT_TESTS=1 python -m pytest -q backend/tests
 ```
 
-On Windows PowerShell, use `$env:PYTHONPATH="backend"` and `$env:RUN_CAD_TESTS="1"` before running pytest.
+The environment flags enable real integrations. Set either flag individually to run only the installed engine’s tests. On Windows PowerShell set these variables through `$env:PYTHONPATH="backend"`, `$env:RUN_CAD_TESTS="1"` and `$env:RUN_SOLIDCRAFT_TESTS="1"` as appropriate.
 
 The geometric verifier checks FreeCAD expressions and sketch constraints, feature links, recompute state, validity and bounds of the solid, removed volume, slot loops and locations on both faces, and the measured clearances on all four edges. The acceptance log contains exactly three cases. The separate JSON includes geometry evidence and threshold runs on both axes. The default row boundary is 86 mm and the default column boundary is 48 mm. The actual integration suite also verifies reopening and recomputing from a saved FCStd, invalid edit rejection and export formats.
 
@@ -74,6 +110,8 @@ Included acceptance artifacts were produced by FreeCAD 1.0.0. The case outputs h
 ## Implementation map
 
 - `backend/app/parameters.py` defines the common server-side millimetre model.
+- `backend/app/engines.py` selects the CAD adapter, records each attempt and verifies the requested exports.
+- `backend/app/solidcraft.py` builds and checks the SolidCraft model and drawing through the version-pinned CLI.
 - `backend/app/cad.py` builds and independently verifies FreeCAD features and runs acceptance tests.
 - `backend/app/drawing.py` projects the checked solid and builds the native drawing page and exports.
 - `backend/app/main.py` handles spreadsheet exchange and transactional worker jobs.
