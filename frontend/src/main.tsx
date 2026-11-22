@@ -200,7 +200,7 @@ function App() {
         <div className="hero-end"><span className="mode"><span className={demo||version||health?.engines?.solidcraft.available?'green':'amber'}/>{demo?'Interactive demo':version?'FreeCAD '+version:health?.engines?.solidcraft.available?'SolidCraft '+health.engines.solidcraft.version:health?'CAD engines offline':'Checking CAD engines'}</span><button className="btn primary" disabled={!!busy} onClick={()=>cad('model')}><Box size={17}/> Generate CAD model</button>
           <button className="btn" disabled={!!busy||!viewerSource}
             title={viewerSource?undefined:'Generate a CAD model to enable the viewer'}
-            onClick={()=>{viewerDialog.current?.showModal();setViewerOpen(true)}}><Eye size={16}/> View in browser</button>
+            onClick={()=>{setDrawingTab(sheetUrl?'sheet':'views');viewerDialog.current?.showModal();setViewerOpen(true)}}><Eye size={16}/> View in browser</button>
         </div>
       </section>
       {demo&&<aside className="demo-note">
@@ -310,11 +310,11 @@ function App() {
         <section aria-labelledby="review-views-title" className="review-pane">
           <div className="review-pane-heading"><h3 id="review-views-title">2D and isometric views</h3></div>
           {sheetUrl&&<div className="segmented review-tabs" role="group" aria-label="Drawing preview mode">
-            <button aria-pressed={drawingTab==='views'} onClick={()=>setDrawingTab('views')}>All views</button>
+            <button aria-pressed={drawingTab==='views'} onClick={()=>setDrawingTab('views')}>Projected views</button>
             <button aria-pressed={drawingTab==='sheet'} onClick={()=>setDrawingTab('sheet')}>Drawing sheet</button>
           </div>}
-          <div className="review-views" ref={projectedCanvases} hidden={drawingTab==='sheet'}>
-            {projectedViews.map(({name})=><figure key={name}>
+          <div className="review-views review-paper" ref={projectedCanvases} hidden={drawingTab==='sheet'}>
+            {[0,6,1,2,3,4,5].map(i=>projectedViews[i]).map(({name})=><figure key={name}>
               <canvas data-view={name} role="img" aria-label={`${name} view of the CAD model`}/>
               <figcaption>{name}</figcaption>
             </figure>)}

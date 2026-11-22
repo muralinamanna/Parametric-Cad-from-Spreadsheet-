@@ -74,8 +74,40 @@ function renderProjections(renderer:THREE.WebGLRenderer,scene:THREE.Scene,halfSi
   renderer.setPixelRatio(ratio)
 }
 
+function drawingScene(model:THREE.Object3D){
+  const sheet=new THREE.Scene()
+  sheet.background=new THREE.Color(0xffffff)
+  const faces=new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide,
+    polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1})
+  const ink=new THREE.LineBasicMaterial({color:0x17283e})
+  const outlines:THREE.EdgesGeometry[]=[]
+  model.updateWorldMatrix(true,true)
+  model.traverse(object=>{
+    if (!(object instanceof THREE.Mesh)) return
+    const face=new THREE.Mesh(object.geometry,faces)
+    const outline=new THREE.EdgesGeometry(object.geometry,25)
+    outlines.push(outline)
+    face.add(new THREE.LineSegments(outline,ink))
+    face.matrix.copy(object.matrixWorld)
+    face.matrixAutoUpdate=false
+    sheet.add(face)
+  })
+  return {sheet,dispose:()=>{outlines.forEach(outline=>outline.dispose());faces.dispose();ink.dispose()}}
+}
+
+type CadControls={
+  view:(view:typeof projectedViews[number])=>void
+  zoom:(factor:number)=>void
+  rotate:(radians:number)=>void
+  fit:()=>void
+  show:(visible:boolean)=>void
+}
+
 export default function Scene({preview,source,projections}:Props) {
   const mount=useRef<HTMLDivElement>(null)
+  const cad=useRef<CadControls|null>(null)
+  const [ready,setReady]=useState(false)
+  const [visible,setVisible]=useState(true)
   const [status,setStatus]=useState(source?'Loading generated model…':'')
   const url=source?.url, format=source?.format
   useEffect(()=>{
@@ -83,6 +115,7 @@ export default function Scene({preview,source,projections}:Props) {
     const stopping=new AbortController()
     let teardown:()=>void=()=>{}
     async function start(){
+      setReady(false)
       setStatus(url?'Loading generated model…':'')
       const model=preview?previewMesh(preview):await loadMesh({url:url!,format:format!},stopping.signal)
       if (stopping.signal.aborted){disposeModel(model);return}
@@ -102,38 +135,98 @@ export default function Scene({preview,source,projections}:Props) {
       const light=new THREE.DirectionalLight(0xffffff,2)
       light.position.set(-4,-5,6)
       scene.add(light)
-      const camera=new THREE.PerspectiveCamera(42,1,.1,100)
+      const camera=new THREE.OrthographicCamera(-4,4,4,-4,.1,100)
       camera.up.set(0,0,1)
       camera.position.set(4,-5,7)
       renderer.setPixelRatio(Math.min(devicePixelRatio,2))
       if(projections?.current){
         const halfSize=size.clone().multiplyScalar(2.5/span)
-        renderProjections(renderer,scene,halfSize,projections.current)
+        const drawing=drawingScene(normalized)
+        renderProjections(renderer,drawing.sheet,halfSize,projections.current)
+        drawing.dispose()
       }
       host.appendChild(renderer.domElement)
       const controls=new OrbitControls(camera,renderer.domElement)
-      controls.enableDamping=true
-      const observer=new ResizeObserver(()=>{
-        camera.aspect=host.clientWidth/Math.max(host.clientHeight,1)
-        camera.zoom=Math.min(1,camera.aspect)
+      controls.enableDamping=!url
+      controls.minZoom=.25
+      controls.maxZoom=10
+      const radius=size.length()*2.5/span
+      const resize=()=>{
+        const width=Math.max(host.clientWidth,1),height=Math.max(host.clientHeight,1)
+        const aspect=width/height
+        const span=radius*1.12/Math.min(aspect,1)
+        camera.left=-span*aspect
+        camera.right=span*aspect
+        camera.top=span
+        camera.bottom=-span
         camera.updateProjectionMatrix()
-        renderer.setSize(host.clientWidth,host.clientHeight)
-      })
+        renderer.setSize(width,height)
+      }
+      const fit=()=>{
+        camera.position.sub(controls.target).normalize().multiplyScalar(12)
+        controls.target.set(0,0,0)
+        camera.zoom=1
+        camera.updateProjectionMatrix()
+        controls.update()
+      }
+      cad.current={
+        view:({direction})=>{
+          // Keep the orbit controller's world-up axis fixed. At the poles a
+          // slight azimuth offset gives the top and bottom views a stable up direction.
+          const [x,y,z]=direction
+          camera.position.set(x,y || (x===0?-0.00001:0),z)
+          controls.target.set(0,0,0)
+          fit()
+        },
+        zoom:factor=>{
+          camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,controls.minZoom,controls.maxZoom)
+          camera.updateProjectionMatrix()
+        },
+        rotate:radians=>{
+          camera.position.sub(controls.target).applyAxisAngle(camera.up,radians).add(controls.target)
+          controls.update()
+        },
+        fit,
+        show:shown=>{normalized.visible=shown},
+      }
+      resize()
+      const observer=new ResizeObserver(resize)
       observer.observe(host)
       renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)})
       teardown=()=>{
         observer.disconnect();renderer.setAnimationLoop(null);controls.dispose()
         disposeModel(model);renderer.dispose();renderer.domElement.remove()
       }
+      setVisible(true)
+      setReady(true)
       setStatus('')
     }
     void start().catch(error=>{
       if (!stopping.signal.aborted) setStatus(error instanceof Error?error.message:'Unable to display the 3D model.')
     })
-    return ()=>{stopping.abort();teardown()}
+    return ()=>{stopping.abort();cad.current=null;teardown()}
   },[preview,url,format,projections])
-  return <div className="scene" aria-label={source?'Generated CAD model viewer':'Interactive 3D pegboard preview'}>
-    <div className="scene-mount" ref={mount}/>
-    {status&&<p role="status">{status}</p>}
+  return <div className={source?"scene scene-with-toolbar":"scene"} aria-label={source?'Generated CAD model viewer':'Interactive 3D pegboard preview'}>
+    {source&&<div className="cad-toolbar">
+      <div role="group" aria-label="Standard CAD views">
+        {projectedViews.map(view=><button key={view.name} type="button" disabled={!ready}
+          onClick={()=>cad.current?.view(view)}>{view.name}</button>)}
+      </div>
+      <div role="group" aria-label="CAD navigation">
+        <button type="button" disabled={!ready} onClick={()=>cad.current?.zoom(1.25)}>Zoom in</button>
+        <button type="button" disabled={!ready} onClick={()=>cad.current?.zoom(0.8)}>Zoom out</button>
+        <button type="button" disabled={!ready} onClick={()=>cad.current?.rotate(Math.PI/12)}>Rotate left</button>
+        <button type="button" disabled={!ready} onClick={()=>cad.current?.rotate(-Math.PI/12)}>Rotate right</button>
+        <button type="button" disabled={!ready} onClick={()=>cad.current?.fit()}>Fit to screen</button>
+        <button type="button" disabled={!ready} onClick={()=>{cad.current?.show(!visible);setVisible(!visible)}}>
+          {visible?'Hide model':'Show model'}
+        </button>
+        <span title="Exploded views require a multi-part assembly."><button type="button" aria-label="Explode (requires a multi-part assembly)" disabled>Explode</button></span>
+      </div>
+    </div>}
+    <div className="scene-viewport">
+      <div className="scene-mount" ref={mount}/>
+      {status&&<p role="status">{status}</p>}
+    </div>
   </div>
 }

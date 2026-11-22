@@ -155,3 +155,17 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .product-definitions dd+dt{margin-top:7px}
 @media(max-width:900px){.review-panes{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.review-details{grid-column:1 / -1}}
 @media(max-width:620px){.review-panes{grid-template-columns:1fr}.review-3d .cad-viewer-canvas{min-height:255px}}
+.scene-viewport{position:absolute;inset:0}
+.scene-viewport>p{position:relative}
+.scene-with-toolbar{display:flex;flex-direction:column}
+.scene-with-toolbar .scene-viewport{position:relative;inset:auto;flex:1;min-height:180px}
+.cad-toolbar{padding:7px;display:grid;gap:5px;background:#f6f9fd;border-bottom:1px solid #dce6f2;text-align:left}
+.cad-toolbar>div{display:flex;flex-wrap:wrap;gap:4px}
+.cad-toolbar button{padding:4px 7px;border:1px solid #d5e2f0;border-radius:4px;background:white;color:#284867;font-size:11px;min-height:25px}
+.cad-toolbar button:hover:not(:disabled){background:#eaf2fc}
+.review-paper{margin:9px;padding:9px;border:1px solid #bfcad8;background:#fff;gap:10px}
+.review-paper figure{background:#fff;border:0;border-radius:0}
+.review-paper figcaption{text-transform:uppercase;letter-spacing:.04em;color:#25364b}
+.review-sheet{background:#fff;box-shadow:0 1px 4px #25364b26}
+.review-3d .cad-viewer-canvas{min-height:320px}
+@media(max-width:620px){.review-3d .cad-viewer-canvas{min-height:340px}}
