@@ -130,3 +130,28 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .scene-mount{position:absolute;inset:0}
 .scene>p{position:relative}
 @media(max-width:740px){.hero-end{justify-content:flex-start}}
+.cad-viewer{width:min(1512px,96vw);max-height:94dvh}
+.review-panes{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.74fr);gap:10px;padding:10px;background:#f3f6fa}
+.review-pane{min-width:0;background:white;border:1px solid #dce5f0;border-radius:8px;overflow:hidden}
+.review-pane-heading{min-height:40px;padding:11px 12px;border-bottom:1px solid #e4edf7}
+.review-pane-heading h3,.review-details h4{font-size:13px;margin:0}
+.review-3d{display:flex;flex-direction:column}
+.review-3d .cad-viewer-canvas{height:auto;flex:1;min-height:280px}
+.review-downloads{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid #e4edf7;color:#556780;font-size:11px}
+.review-tabs{display:inline-flex;margin:8px 9px 0}
+.review-views{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:9px}
+.review-views[hidden]{display:none}
+.review-views figure{margin:0;border:1px solid #e4edf7;border-radius:5px;overflow:hidden;background:#f2f7fc}
+.review-views canvas{display:block;width:100%;height:auto;aspect-ratio:320/208}
+.review-views figcaption{text-align:center;font-size:11px;padding:3px 4px;background:white;color:#3d587c}
+.review-sheet{display:block;width:calc(100% - 18px);margin:9px;border:1px solid #e4edf7}
+.product-specs,.product-definitions{margin:0;padding:10px 11px;font-size:11px;line-height:1.35}
+.product-specs{display:grid;grid-template-columns:1fr 1fr;gap:8px 5px}
+.product-specs dt,.product-definitions dt{color:#475f7c}
+.product-specs dd,.product-definitions dd{margin:0}
+.product-specs dd{font-weight:650}
+.review-details h4{padding:8px 11px 0}
+.product-definitions dt{font-weight:650}
+.product-definitions dd+dt{margin-top:7px}
+@media(max-width:900px){.review-panes{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.review-details{grid-column:1 / -1}}
+@media(max-width:620px){.review-panes{grid-template-columns:1fr}.review-3d .cad-viewer-canvas{min-height:255px}}

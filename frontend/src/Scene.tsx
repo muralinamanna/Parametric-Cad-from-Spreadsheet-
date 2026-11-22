@@ -1,10 +1,12 @@
 import {useEffect,useRef,useState} from 'react'
+import type {RefObject} from 'react'
 import * as THREE from 'three'
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js'
 import type {Preview} from './model'
+import {projectedViews} from './projectedViews'
 
 type Source={url:string,format:'glb'|'stl'}
-type Props={preview:Preview,source?:never}|{preview?:never,source:Source}
+type Props={preview:Preview,source?:never,projections?:never}|{preview?:never,source:Source,projections?:RefObject<HTMLDivElement|null>}
 
 function previewMesh(preview:Preview) {
   const p=preview.parameters
@@ -45,7 +47,34 @@ function disposeModel(model:THREE.Object3D) {
   })
 }
 
-export default function Scene({preview,source}:Props) {
+function renderProjections(renderer:THREE.WebGLRenderer,scene:THREE.Scene,halfSize:THREE.Vector3,container:HTMLDivElement) {
+  const width=320,height=208,aspect=width/height
+  const ratio=renderer.getPixelRatio()
+  renderer.setPixelRatio(1)
+  renderer.setSize(width,height,false)
+  for(const {name,direction,up} of projectedViews){
+    const tile=container.querySelector<HTMLCanvasElement>(`[data-view="${name}"]`)
+    const context=tile?.getContext('2d')
+    if (!tile||!context) continue
+    const normal=new THREE.Vector3(...direction).normalize()
+    const right=new THREE.Vector3(...up).cross(normal).normalize()
+    const vertical=normal.clone().cross(right)
+    const extent=(axis:THREE.Vector3)=>Math.abs(axis.x)*halfSize.x+Math.abs(axis.y)*halfSize.y+Math.abs(axis.z)*halfSize.z
+    const span=Math.max(extent(vertical),extent(right)/aspect)*1.16
+    const camera=new THREE.OrthographicCamera(-span*aspect,span*aspect,span,-span,.1,100)
+    camera.up.set(up[0],up[1],up[2])
+    camera.position.copy(normal.multiplyScalar(12))
+    camera.lookAt(0,0,0)
+    renderer.render(scene,camera)
+    tile.width=width
+    tile.height=height
+    context.drawImage(renderer.domElement,0,0)
+    tile.dataset.ready='true'
+  }
+  renderer.setPixelRatio(ratio)
+}
+
+export default function Scene({preview,source,projections}:Props) {
   const mount=useRef<HTMLDivElement>(null)
   const [status,setStatus]=useState(source?'Loading generated model…':'')
   const url=source?.url, format=source?.format
@@ -77,6 +106,10 @@ export default function Scene({preview,source}:Props) {
       camera.up.set(0,0,1)
       camera.position.set(4,-5,7)
       renderer.setPixelRatio(Math.min(devicePixelRatio,2))
+      if(projections?.current){
+        const halfSize=size.clone().multiplyScalar(2.5/span)
+        renderProjections(renderer,scene,halfSize,projections.current)
+      }
       host.appendChild(renderer.domElement)
       const controls=new OrbitControls(camera,renderer.domElement)
       controls.enableDamping=true
@@ -98,7 +131,7 @@ export default function Scene({preview,source}:Props) {
       if (!stopping.signal.aborted) setStatus(error instanceof Error?error.message:'Unable to display the 3D model.')
     })
     return ()=>{stopping.abort();teardown()}
-  },[preview,url,format])
+  },[preview,url,format,projections])
   return <div className="scene" aria-label={source?'Generated CAD model viewer':'Interactive 3D pegboard preview'}>
     <div className="scene-mount" ref={mount}/>
     {status&&<p role="status">{status}</p>}

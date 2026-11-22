@@ -3,9 +3,12 @@ import {createRoot} from 'react-dom/client'
 import {Activity, ArrowDownToLine, ArrowRight, Box, Check, ChevronDown, CircleHelp, Eye, ClipboardCheck, FileSpreadsheet, FileText, Grid2X2, Layers3, LoaderCircle, Maximize2, Play, RotateCcw, ScanLine, Upload, X} from 'lucide-react'
 import {calculate, defaults, fields, number} from './model'
 import type {Input, Key, Parameters, Preview} from './model'
+import {projectedViews} from './projectedViews'
+import ProductDetails from './ProductDetails'
 import './styles.css'
 import captions from './captions.vtt?raw'
 
+const nominalPreview=calculate(defaults)
 const Scene=lazy(()=>import('./Scene'))
 const setupGuide='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/blob/b5bf3d5835ce7a0e45a3d6edbcf1df2c14730064/README.md'
 const fullAppSetup=setupGuide+'#run-the-full-local-app'
@@ -100,6 +103,9 @@ function App() {
   const [material,setMaterial]=useState('')
   const viewerDialog=useRef<HTMLDialogElement>(null)
   const [viewerOpen,setViewerOpen]=useState(false)
+  const [drawingTab,setDrawingTab]=useState<'views'|'sheet'>('views')
+  const projectedCanvases=useRef<HTMLDivElement>(null)
+  const sheetUrl=files['pegboard.svg']
   const glb=demo?sampleUrl('pegboard.glb'):files['pegboard.glb']
   const stl=files['pegboard.stl']
   const viewerSource=glb?{url:glb,format:'glb' as const}:stl?{url:stl,format:'stl' as const}:null
@@ -279,19 +285,52 @@ function App() {
       <footer>Spreadsheet to Drawing <span>Millimetres · XY datum · Parametric CAD</span></footer>
     </main>
     <dialog aria-labelledby="cad-viewer-title" ref={viewerDialog} className="video-dialog cad-viewer"
-      onClose={()=>setViewerOpen(false)}>
+      onClose={()=>{setViewerOpen(false);setDrawingTab('views')}}>
       <div className="panel-head">
         <div><h2 id="cad-viewer-title">3D CAD model</h2>
           <p>{demo?'Nominal SolidCraft sample · 300 × 200 mm · 80 slots':viewerSource?.format==='glb'?'SolidCraft GLB':'FreeCAD STL'} · Drag to orbit, scroll to zoom</p>
         </div>
         <button className="square" aria-label="Close CAD viewer" onClick={()=>viewerDialog.current?.close()}><X size={18}/></button>
       </div>
-      {viewerOpen&&viewerSource&&<div className="cad-viewer-canvas">
-        <Suspense fallback={<p role="status">Loading the CAD viewer…</p>}><Scene source={viewerSource}/></Suspense>
+      {viewerOpen&&viewerSource&&<div className="review-panes">
+        <section aria-labelledby="review-3d-title" className="review-pane review-3d">
+          <div className="review-pane-heading"><h3 id="review-3d-title">Interactive 3D</h3></div>
+          <div className="cad-viewer-canvas">
+            <Suspense fallback={<p role="status">Loading the CAD viewer…</p>}>
+              <Scene source={viewerSource} projections={projectedCanvases}/>
+            </Suspense>
+          </div>
+          <div className="review-downloads">
+            <a className="template" href={viewerSource.url} download={`pegboard.${viewerSource.format}`}>
+              <ArrowDownToLine size={15}/> Download {viewerSource.format.toUpperCase()}
+            </a>
+            {files['pegboard.step']&&<a className="template" href={files['pegboard.step']} download="pegboard.step">Download STEP</a>}
+          </div>
+        </section>
+        <section aria-labelledby="review-views-title" className="review-pane">
+          <div className="review-pane-heading"><h3 id="review-views-title">2D and isometric views</h3></div>
+          {sheetUrl&&<div className="segmented review-tabs" role="group" aria-label="Drawing preview mode">
+            <button aria-pressed={drawingTab==='views'} onClick={()=>setDrawingTab('views')}>All views</button>
+            <button aria-pressed={drawingTab==='sheet'} onClick={()=>setDrawingTab('sheet')}>Drawing sheet</button>
+          </div>}
+          <div className="review-views" ref={projectedCanvases} hidden={drawingTab==='sheet'}>
+            {projectedViews.map(({name})=><figure key={name}>
+              <canvas data-view={name} role="img" aria-label={`${name} view of the CAD model`}/>
+              <figcaption>{name}</figcaption>
+            </figure>)}
+          </div>
+          {drawingTab==='sheet'&&sheetUrl&&<img className="review-sheet" src={sheetUrl} alt="Dimensioned drawing sheet for the CAD model"/>}
+          <div className="review-downloads">
+            {sheetUrl&&<a className="template" href={sheetUrl} download="pegboard.svg"><ArrowDownToLine size={15}/> Download SVG</a>}
+            {files['pegboard.pdf']&&<a className="template" href={files['pegboard.pdf']} download="pegboard.pdf">Download PDF</a>}
+            {!sheetUrl&&<span>Generate a 2D drawing to preview the dimensioned sheet.</span>}
+          </div>
+        </section>
+        <section aria-labelledby="review-details-title" className="review-pane review-details">
+          <div className="review-pane-heading"><h3 id="review-details-title">Product characteristics</h3></div>
+          <ProductDetails model={demo?nominalPreview:current}/>
+        </section>
       </div>}
-      {viewerSource&&<a className="template video-download" href={viewerSource.url} download={`pegboard.${viewerSource.format}`}>
-        <ArrowDownToLine size={15}/> Download {viewerSource.format.toUpperCase()}
-      </a>}
     </dialog>
     <dialog aria-label="Spreadsheet to Drawing walkthrough" ref={video} onClose={()=>video.current?.querySelector('video')?.pause()} className="video-dialog">
       <div className="panel-head"><div className="icon-tile"><Play size={19}/></div><div><h2>Spreadsheet to Drawing walkthrough</h2><p>Inputs, CAD recomputation, drawings and test evidence</p></div><button className="square" onClick={()=>video.current?.close()} aria-label="Close video"><X size={18}/></button></div>
