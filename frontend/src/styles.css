@@ -157,12 +157,12 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 @media(max-width:620px){.review-panes{grid-template-columns:1fr}.review-3d .cad-viewer-canvas{min-height:255px}}
 .scene-viewport{position:absolute;inset:0}
 .scene-viewport>p{position:relative}
-.scene-with-toolbar{display:flex;flex-direction:column}
-.scene-with-toolbar .scene-viewport{position:relative;inset:auto;flex:1;min-height:180px}
-.cad-toolbar{padding:7px;display:grid;gap:5px;background:#f6f9fd;border-bottom:1px solid #dce6f2;text-align:left}
-.cad-toolbar>div{display:flex;flex-wrap:wrap;gap:4px}
+.scene-with-toolbar{display:flex;flex-direction:row}
+.scene-with-toolbar .scene-viewport{position:relative;inset:auto;flex:1;min-width:0}
+.cad-toolbar{padding:5px;display:flex;flex-direction:column;gap:5px;flex:none;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;background:#f6f9fd;border-right:1px solid #dce6f2;text-align:left}
+.cad-toolbar>div{display:flex;flex-direction:column;gap:2px;flex:none}
 .cad-toolbar>div+div{padding-top:3px;border-top:1px solid #e3ebf6}
-.cad-toolbar button{display:grid;place-items:center;width:33px;height:32px;padding:0;border:1px solid #d5e2f0;border-radius:5px;background:white;color:#284867}
+.cad-toolbar button{display:grid;place-items:center;width:30px;height:27px;padding:0;border:1px solid #d5e2f0;border-radius:5px;background:white;color:#284867}
 .cad-toolbar button svg{width:17px;height:17px;pointer-events:none}
 .cad-toolbar button[aria-pressed=true]{background:#dbeafe;border-color:#8fb1dc;color:#12477e}
 .cad-toolbar button:hover:not(:disabled){background:#eaf2fc}
@@ -172,3 +172,13 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .review-sheet{background:#fff;box-shadow:0 1px 4px #25364b26}
 .review-3d .cad-viewer-canvas{min-height:320px}
 @media(max-width:620px){.review-3d .cad-viewer-canvas{min-height:340px}}
+.drawing-tools{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:8px 9px 4px;color:#284867}
+.drawing-tools button{display:inline-flex;align-items:center;justify-content:center;min-width:29px;height:29px;padding:0 6px;border:1px solid #d5e2f0;border-radius:5px;background:white;color:inherit;font-size:11px}
+.drawing-tools button[aria-pressed=true]{background:#dbeafe;border-color:#8fb1dc}
+.drawing-tools svg{width:15px;height:15px}
+.drawing-tools output{font-size:11px;font-variant-numeric:tabular-nums;text-align:center;min-width:36px}
+.drawing-layer-note{padding:0 9px;margin:4px 0 6px;color:#516681;font-size:11px}
+.drawing-viewport{height:clamp(300px,52vh,570px);overflow:auto;overscroll-behavior:contain;background:#f3f6fa}
+.drawing-pan{cursor:grab;touch-action:none;user-select:none}
+.drawing-pan:active{cursor:grabbing}
+.drawing-scale{display:flow-root;min-height:100%;margin-inline:auto}

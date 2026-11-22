@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client'
 import {Activity, ArrowDownToLine, ArrowRight, Box, Check, ChevronDown, CircleHelp, Eye, ClipboardCheck, FileSpreadsheet, FileText, Grid2X2, Layers3, LoaderCircle, Maximize2, Play, RotateCcw, ScanLine, Upload, X} from 'lucide-react'
 import {calculate, defaults, fields, number} from './model'
 import type {Input, Key, Parameters, Preview} from './model'
-import {projectedViews} from './projectedViews'
+import DrawingReview from './DrawingReview'
 import ProductDetails from './ProductDetails'
 import './styles.css'
 import captions from './captions.vtt?raw'
@@ -309,17 +309,7 @@ function App() {
         </section>
         <section aria-labelledby="review-views-title" className="review-pane">
           <div className="review-pane-heading"><h3 id="review-views-title">2D and isometric views</h3></div>
-          {sheetUrl&&<div className="segmented review-tabs" role="group" aria-label="Drawing preview mode">
-            <button aria-pressed={drawingTab==='views'} onClick={()=>setDrawingTab('views')}>Projected views</button>
-            <button aria-pressed={drawingTab==='sheet'} onClick={()=>setDrawingTab('sheet')}>Drawing sheet</button>
-          </div>}
-          <div className="review-views review-paper" ref={projectedCanvases} hidden={drawingTab==='sheet'}>
-            {[0,6,1,2,3,4,5].map(i=>projectedViews[i]).map(({name})=><figure key={name}>
-              <canvas data-view={name} role="img" aria-label={`${name} view of the CAD model`}/>
-              <figcaption>{name}</figcaption>
-            </figure>)}
-          </div>
-          {drawingTab==='sheet'&&sheetUrl&&<img className="review-sheet" src={sheetUrl} alt="Dimensioned drawing sheet for the CAD model"/>}
+          <DrawingReview sheetUrl={sheetUrl} tab={drawingTab} setTab={setDrawingTab} projections={projectedCanvases}/>
           <div className="review-downloads">
             {sheetUrl&&<a className="template" href={sheetUrl} download="pegboard.svg"><ArrowDownToLine size={15}/> Download SVG</a>}
             {files['pegboard.pdf']&&<a className="template" href={files['pegboard.pdf']} download="pegboard.pdf">Download PDF</a>}
