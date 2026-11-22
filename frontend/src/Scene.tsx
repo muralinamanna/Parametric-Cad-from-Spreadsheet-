@@ -4,6 +4,8 @@ import * as THREE from 'three'
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js'
 import type {Preview} from './model'
 import {projectedViews} from './projectedViews'
+import CadToolbar from './CadToolbar'
+import type {CadControls} from './CadToolbar'
 
 type Source={url:string,format:'glb'|'stl'}
 type Props={preview:Preview,source?:never,projections?:never}|{preview?:never,source:Source,projections?:RefObject<HTMLDivElement|null>}
@@ -95,19 +97,10 @@ function drawingScene(model:THREE.Object3D){
   return {sheet,dispose:()=>{outlines.forEach(outline=>outline.dispose());faces.dispose();ink.dispose()}}
 }
 
-type CadControls={
-  view:(view:typeof projectedViews[number])=>void
-  zoom:(factor:number)=>void
-  rotate:(radians:number)=>void
-  fit:()=>void
-  show:(visible:boolean)=>void
-}
-
 export default function Scene({preview,source,projections}:Props) {
   const mount=useRef<HTMLDivElement>(null)
   const cad=useRef<CadControls|null>(null)
   const [ready,setReady]=useState(false)
-  const [visible,setVisible]=useState(true)
   const [status,setStatus]=useState(source?'Loading generated model…':'')
   const url=source?.url, format=source?.format
   useEffect(()=>{
@@ -137,7 +130,8 @@ export default function Scene({preview,source,projections}:Props) {
       scene.add(light)
       const camera=new THREE.OrthographicCamera(-4,4,4,-4,.1,100)
       camera.up.set(0,0,1)
-      camera.position.set(4,-5,7)
+      if (url) camera.position.set(1,-1,1).normalize().multiplyScalar(12)
+      else camera.position.set(4,-5,7)
       renderer.setPixelRatio(Math.min(devicePixelRatio,2))
       if(projections?.current){
         const halfSize=size.clone().multiplyScalar(2.5/span)
@@ -150,7 +144,24 @@ export default function Scene({preview,source,projections}:Props) {
       controls.enableDamping=!url
       controls.minZoom=.25
       controls.maxZoom=10
-      const radius=size.length()*2.5/span
+      const halfSize=size.clone().multiplyScalar(2.5/span)
+      const grid=new THREE.GridHelper(12,24,0x7993ae,0xc7d6e7)
+      grid.rotation.x=Math.PI/2
+      grid.position.set(-halfSize.x,-halfSize.y,-halfSize.z)
+      grid.visible=false
+      const axes=new THREE.AxesHelper(1.5)
+      axes.position.copy(grid.position)
+      axes.visible=false
+      scene.add(grid,axes)
+      const shadedMaterials=new Set<THREE.MeshStandardMaterial|THREE.MeshBasicMaterial>()
+      model.traverse(object=>{
+        if (!(object instanceof THREE.Mesh)) return
+        for (const material of Array.isArray(object.material)?object.material:[object.material]){
+          if (material instanceof THREE.MeshStandardMaterial||material instanceof THREE.MeshBasicMaterial)
+            shadedMaterials.add(material)
+        }
+      })
+      const radius=halfSize.length()
       const resize=()=>{
         const width=Math.max(host.clientWidth,1),height=Math.max(host.clientHeight,1)
         const aspect=width/height
@@ -188,6 +199,19 @@ export default function Scene({preview,source,projections}:Props) {
         },
         fit,
         show:shown=>{normalized.visible=shown},
+        wireframe:enabled=>{
+          for (const material of shadedMaterials){
+            material.wireframe=enabled
+            material.needsUpdate=true
+          }
+        },
+        grid:enabled=>{grid.visible=enabled},
+        axes:enabled=>{axes.visible=enabled},
+        pan:enabled=>{
+          controls.mouseButtons.LEFT=enabled?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE
+          controls.touches.ONE=enabled?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE
+          renderer.domElement.style.cursor=enabled?'move':''
+        },
       }
       resize()
       const observer=new ResizeObserver(resize)
@@ -195,9 +219,8 @@ export default function Scene({preview,source,projections}:Props) {
       renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)})
       teardown=()=>{
         observer.disconnect();renderer.setAnimationLoop(null);controls.dispose()
-        disposeModel(model);renderer.dispose();renderer.domElement.remove()
+        grid.dispose();axes.dispose();disposeModel(model);renderer.dispose();renderer.domElement.remove()
       }
-      setVisible(true)
       setReady(true)
       setStatus('')
     }
@@ -207,23 +230,7 @@ export default function Scene({preview,source,projections}:Props) {
     return ()=>{stopping.abort();cad.current=null;teardown()}
   },[preview,url,format,projections])
   return <div className={source?"scene scene-with-toolbar":"scene"} aria-label={source?'Generated CAD model viewer':'Interactive 3D pegboard preview'}>
-    {source&&<div className="cad-toolbar">
-      <div role="group" aria-label="Standard CAD views">
-        {projectedViews.map(view=><button key={view.name} type="button" disabled={!ready}
-          onClick={()=>cad.current?.view(view)}>{view.name}</button>)}
-      </div>
-      <div role="group" aria-label="CAD navigation">
-        <button type="button" disabled={!ready} onClick={()=>cad.current?.zoom(1.25)}>Zoom in</button>
-        <button type="button" disabled={!ready} onClick={()=>cad.current?.zoom(0.8)}>Zoom out</button>
-        <button type="button" disabled={!ready} onClick={()=>cad.current?.rotate(Math.PI/12)}>Rotate left</button>
-        <button type="button" disabled={!ready} onClick={()=>cad.current?.rotate(-Math.PI/12)}>Rotate right</button>
-        <button type="button" disabled={!ready} onClick={()=>cad.current?.fit()}>Fit to screen</button>
-        <button type="button" disabled={!ready} onClick={()=>{cad.current?.show(!visible);setVisible(!visible)}}>
-          {visible?'Hide model':'Show model'}
-        </button>
-        <span title="Exploded views require a multi-part assembly."><button type="button" aria-label="Explode (requires a multi-part assembly)" disabled>Explode</button></span>
-      </div>
-    </div>}
+    {source&&<CadToolbar key={url} ready={ready} controls={cad}/>}
     <div className="scene-viewport">
       <div className="scene-mount" ref={mount}/>
       {status&&<p role="status">{status}</p>}

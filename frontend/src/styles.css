@@ -161,7 +161,10 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .scene-with-toolbar .scene-viewport{position:relative;inset:auto;flex:1;min-height:180px}
 .cad-toolbar{padding:7px;display:grid;gap:5px;background:#f6f9fd;border-bottom:1px solid #dce6f2;text-align:left}
 .cad-toolbar>div{display:flex;flex-wrap:wrap;gap:4px}
-.cad-toolbar button{padding:4px 7px;border:1px solid #d5e2f0;border-radius:4px;background:white;color:#284867;font-size:11px;min-height:25px}
+.cad-toolbar>div+div{padding-top:3px;border-top:1px solid #e3ebf6}
+.cad-toolbar button{display:grid;place-items:center;width:33px;height:32px;padding:0;border:1px solid #d5e2f0;border-radius:5px;background:white;color:#284867}
+.cad-toolbar button svg{width:17px;height:17px;pointer-events:none}
+.cad-toolbar button[aria-pressed=true]{background:#dbeafe;border-color:#8fb1dc;color:#12477e}
 .cad-toolbar button:hover:not(:disabled){background:#eaf2fc}
 .review-paper{margin:9px;padding:9px;border:1px solid #bfcad8;background:#fff;gap:10px}
 .review-paper figure{background:#fff;border:0;border-radius:0}
