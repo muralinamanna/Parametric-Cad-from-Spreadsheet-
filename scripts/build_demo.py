@@ -26,16 +26,17 @@ source, styles = re.subn(r'<link rel="stylesheet" crossorigin href="\./([^"]+)">
 if scripts != 1 or styles != 1:
     raise RuntimeError("Standalone HTML is missing the inlined application assets.")
 
-mime_types = {
-    ".csv": "text/csv", ".stl": "model/stl", ".glb": "model/gltf-binary", ".dxf": "application/dxf", ".fcstd": "application/octet-stream",
-    ".json": "application/json", ".mp4": "video/mp4", ".png": "image/png", ".pdf": "application/pdf",
-    ".step": "application/step", ".svg": "image/svg+xml",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+demo_assets = {
+    "walkthrough.mp4": "video/mp4",
+    "pegboard.svg": "image/svg+xml",
+    "pegboard.glb": "model/gltf-binary",
+    "cadrs_base.stl": "model/stl",
+    "cadrs_initial.stl": "model/stl",
+    "cadrs_refreshed.stl": "model/stl",
 }
 samples = {
-    path.name: [mime_types[path.suffix.lower()], base64.b64encode(path.read_bytes()).decode("ascii")]
-    for path in sorted((demo / "samples").iterdir())
-    if path.is_file() and path.suffix.lower() in mime_types
+    name: [mime, base64.b64encode((demo / "samples" / name).read_bytes()).decode("ascii")]
+    for name, mime in demo_assets.items()
 }
 portable = source.replace("</body>", '<script type="application/json" id="embedded-samples">'
                           + json.dumps(samples, separators=(",", ":")) + "</script></body>", 1)

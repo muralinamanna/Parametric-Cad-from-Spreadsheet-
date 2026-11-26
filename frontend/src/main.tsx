@@ -14,8 +14,6 @@ import captions from './captions.vtt?raw'
 
 const nominalPreview=calculate(defaults)
 const Scene=lazy(()=>import('./Scene'))
-const setupGuide='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/blob/4bdefa3/README.md'
-const fullAppSetup=setupGuide+'#run-the-full-local-app'
 const embeddedSamples=document.getElementById('embedded-samples')?.textContent
 const bundledSamples:Record<string,[string,string]>=embeddedSamples?JSON.parse(embeddedSamples):{}
 const localSampleUrls=new Map<string,string>()
@@ -35,11 +33,6 @@ const resultFiles=['pegboard.FCStd','pegboard.sc','pegboard.step','pegboard.dxf'
 const modelFiles=[...resultFiles,'pegboard.glb','pegboard.stl']
 const formatNames=['FCStd','SolidCraft SC','STEP','DXF','SVG','PNG','PDF']
 const cases=[['Minimum',30,49],['Nominal',300,200],['Wider',360,200]] as const
-const downloadable:Record<string,string>={
-  ...Object.fromEntries(resultFiles.filter(name=>!name.endsWith(".sc")).map(name=>[name,sampleUrl(name)])),
-  'pegboard_test_log.csv':sampleUrl('pegboard_test_log.csv'),'validation_report.json':sampleUrl('validation_report.json'),
-  ...Object.fromEntries([1,2,3].map(i=>[`case_${i}.FCStd`,sampleUrl(`case_${i}.FCStd`)]))
-}
 type Engine='freecad'|'solidcraft'
 type EngineMode='auto'|Engine
 const engineNames:Record<Engine,string>={freecad:'FreeCAD',solidcraft:'SolidCraft'}
@@ -93,9 +86,10 @@ function App() {
   const [id,setId]=useState('')
   const [detailedDemo,setDetailedDemo]=useState(false)
   const [detailEditor,setDetailEditor]=useState<{source:DesignSource|null}>()
-  const [files,setFiles]=useState<Record<string,string>>(demo?downloadable:{})
+  const [files,setFiles]=useState<Record<string,string>>({})
   const [testResults,setTestResults]=useState<Job['evidence']>()
   const [modelEvidence,setModelEvidence]=useState<number>()
+  const previewPanel=useRef<HTMLElement>(null)
   const [tab,setTab]=useState<'2d'|'3d'>('2d')
   const [dimensions,setDimensions]=useState(true)
   const [expanded,setExpanded]=useState(false)
@@ -104,7 +98,7 @@ function App() {
   const [viewerOpen,setViewerOpen]=useState(false)
   const [drawingTab,setDrawingTab]=useState<'views'|'sheet'>('views')
   const projectedCanvases=useRef<HTMLDivElement>(null)
-  const sheetUrl=files['pegboard.svg']
+  const sheetUrl=demo?sampleUrl('pegboard.svg'):files['pegboard.svg']
   const glb=demo?sampleUrl('pegboard.glb'):files['pegboard.glb']
   const stl=files['pegboard.stl']
   const viewerSource=glb?{url:glb,format:'glb' as const}:stl?{url:stl,format:'stl' as const}:null
@@ -143,10 +137,25 @@ function App() {
     if(current.sources?.holeSpacing) sources.holeSpacing=current.sources.holeSpacing
     accept({...result,sources,detailParameters:current.detailParameters})
   }
+  function openReview(view:'views'|'sheet'){
+    setDrawingTab(view)
+    viewerDialog.current?.showModal()
+    setViewerOpen(true)
+  }
   function cad(action:'model'|'drawing'|'tests') {
     if(demo){
-      setMessage(action==='tests'?'Showing the recorded FreeCAD acceptance results for the sample.':'Sample exports are available below. Use the full app to generate files for your parameters.')
-      if(action==='tests') setTestResults({cases:[{name:'Smallest valid board',result:'PASS'},{name:'Nominal board',result:'PASS'},{name:'Wider board',result:'PASS'}],transitionsPassed:true})
+      if(action==='model'){
+        void act('Building the 3D preview',async ()=>{
+          await apply()
+          setTab('3d')
+          requestAnimationFrame(()=>previewPanel.current?.scrollIntoView({block:'nearest'}))
+          setMessage('3D preview ready. Drag to orbit and scroll to zoom.')
+        })
+      } else if(action==='drawing'){
+        openReview('sheet')
+      } else {
+        setTestResults({cases:[{name:'Smallest valid board',result:'PASS'},{name:'Nominal board',result:'PASS'},{name:'Wider board',result:'PASS'}],transitionsPassed:true})
+      }
       return
     }
     if(dirty&&action!=='tests') {setError('Apply your edited parameters before generating CAD or drawings.');return}
@@ -172,7 +181,7 @@ function App() {
   }
   async function loadFile(file:File) {
     if(demo){
-      if(!file.name.toLowerCase().endsWith('.csv')) throw Error('The interactive demo accepts CSV. Use the full app to upload Excel workbooks.')
+      if(!file.name.toLowerCase().endsWith('.csv')) throw Error('The interactive demo accepts CSV spreadsheets.')
       const rows=(await file.text()).replace(/^\uFEFF/,'').split(/\r?\n/).map(line=>line.split(',').map(cell=>cell.trim().replace(/^"|"$/g,'').trim()))
       const values=Object.fromEntries(fields.map(([key])=>{
         const hits=rows.filter(row=>row[0]===key)
@@ -194,7 +203,7 @@ function App() {
   return <>
     <header className="topbar">
       <div className="brand"><div className="logo"><Layers3 size={20}/></div><div>Spreadsheet to Drawing<span>PARAMETRIC CAD WORKSPACE</span></div></div>
-      <nav aria-label="Workspace"><a className="nav-active" href={demo?'?demo':'./'}>{demo?'Demo workspace':'Workspace'}</a><a href={standalone?fullAppSetup:demo?'./':'?demo'}>{standalone?'Full app setup':demo?'Local workspace':'Interactive demo'} <ArrowRight size={12}/></a></nav>
+      {!demo&&<nav aria-label="Workspace"><a className="nav-active" href="./">Workspace</a><a href="?demo">Interactive demo <ArrowRight size={12}/></a></nav>}
       <button className="btn video-button" onClick={()=>video.current?.showModal()}><Play size={15}/> Demo video</button>
     </header>
     <main>
@@ -203,7 +212,7 @@ function App() {
         <div className="hero-end"><span className="mode"><span className={demo||version||health?.engines?.solidcraft.available?'green':'amber'}/>{demo?'Interactive demo':version?'FreeCAD '+version:health?.engines?.solidcraft.available?'SolidCraft '+health.engines.solidcraft.version:health?'CAD engines offline':'Checking CAD engines'}</span><button className="btn primary" disabled={!!busy} onClick={()=>cad('model')}><Box size={17}/> Generate CAD model</button>
           <button className="btn" disabled={!!busy||!viewerSource}
             title={viewerSource?undefined:'Generate a CAD model to enable the viewer'}
-            onClick={()=>{setDrawingTab(sheetUrl?'sheet':'views');viewerDialog.current?.showModal();setViewerOpen(true)}}><Eye size={16}/> View in browser</button>
+            onClick={()=>openReview(sheetUrl?'sheet':'views')}><Eye size={16}/> View in browser</button>
           {demo&&<button className="btn" onClick={()=>setDetailedDemo(true)}>Detailed design demo</button>}
           {!demo&&id&&viewerSource&&<button className="btn" disabled={!!busy} onClick={()=>setDetailEditor({
             source:{sourceModelId:id,parameters:current.parameters,sources:current.sources||{},detailParameters:current.detailParameters,mesh:viewerSource}
@@ -213,16 +222,7 @@ function App() {
       </section>
       {demo&&<aside className="demo-note">
         <CircleHelp size={16} aria-hidden="true"/>
-        <div>
-          Edit dimensions or select a case. The browser demo includes recorded FreeCAD sample exports.
-          <details className="demo-engine-help">
-            <summary>How CAD engine switching works</summary>
-            <p>To generate custom CAD files, run the full app with a CAD engine installed. Auto tries FreeCAD first
-              and retries a failed CAD operation once with SolidCraft 0.45.0. You can also select either engine manually.</p>
-            <p><a href={setupGuide+'#cad-engine-switching'}>CAD engine setup and supported exports</a></p>
-            <p><a href={setupGuide+'#detailed-product-design'}>Detailed design setup and mounting-plate example</a></p>
-          </details>
-        </div>
+        <div>Edit dimensions or select a case, then choose Generate CAD model for an interactive 3D preview.</div>
       </aside>}
       {!demo&&<section className="panel engine-panel" aria-label="CAD engine">
         <div className="engine-controls">
@@ -247,7 +247,7 @@ function App() {
           <div className="filebar">
             <input ref={upload} type="file" accept={demo?'.csv':'.xlsx,.csv'} hidden onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void act('Reading spreadsheet',()=>loadFile(file))}}/>
             <button className="btn small-btn" disabled={!!busy} onClick={()=>upload.current?.click()}><Upload size={14}/> Load spreadsheet</button>
-            <a className="template" title={demo?'Download CSV template':'Download Excel template'} href={sampleUrl(demo?'pegboard_parameters.csv':'pegboard_parameters.xlsx')} download={demo?'pegboard_parameters.csv':'pegboard_parameters.xlsx'}><ArrowDownToLine size={14}/> {demo?'CSV template':'Excel template'}</a>
+            {!demo&&<a className="template" title="Download Excel template" href={sampleUrl('pegboard_parameters.xlsx')} download="pegboard_parameters.xlsx"><ArrowDownToLine size={14}/> Excel template</a>}
           </div>
           {demo&&<div className="casebar">{cases.map(([name,w,h])=><button key={name} className="btn small-btn" onClick={()=>void act('Loading demo case',()=>apply({...defaults,boardWidth:w,boardHeight:h}))}>{name}</button>)}</div>}
           <form onSubmit={e=>{e.preventDefault();void act('Validating dimensions',()=>apply())}}>
@@ -260,7 +260,7 @@ function App() {
             <div className="param-footer"><button className="btn primary" type="submit" disabled={!!busy}><Check size={16}/> Apply parameters</button><button className="textbtn" type="button" disabled={!!busy} onClick={()=>void act('Restoring defaults',()=>apply(defaults))}><RotateCcw size={14}/> Reset defaults</button></div>
           </form>
         </section>
-        <section className={`panel preview ${expanded?'expanded':''}`}>
+        <section ref={previewPanel} className={`panel preview ${expanded?'expanded':''}`}>
           <div className="panel-head preview-head"><div className="icon-tile"><ScanLine size={19}/></div><div><h2>Model preview</h2><p>PB-001 · Rectangular through-slots</p></div>
             <div className="view-controls"><div className="segmented" role="group" aria-label="Preview view"><button aria-pressed={tab==='2d'} onClick={()=>setTab('2d')}>2D Top</button><button aria-pressed={tab==='3d'} onClick={()=>setTab('3d')}>3D Orbit</button></div><button className="square" onClick={()=>setExpanded(!expanded)} aria-label={expanded?'Close expanded preview':'Expand preview'}>{expanded?<X size={17}/>:<Maximize2 size={16}/>}</button></div>
           </div>
@@ -278,16 +278,16 @@ function App() {
           <details><summary>How the pattern is calculated <ChevronDown size={14}/></summary><p>Pitch is the slot size plus the spacing gap on each axis. The first slot starts at the left and bottom edge margins. Another slot fits when the board span reaches twice the margin plus one slot and the required number of pitches.</p></details>
         </section>
         <section className="panel exports">
-          <div className="panel-head"><div className="icon-tile"><FileText size={19}/></div><div><h2>Drawings &amp; exports</h2><p>Native CAD, drawing sheets and validation evidence</p></div></div>
+          <div className="panel-head"><div className="icon-tile"><FileText size={19}/></div><div><h2>{demo?'Sample drawing and test results':'Drawings & exports'}</h2><p>{demo?'Recorded results for the demo cases':'Native CAD, drawing sheets and validation evidence'}</p></div></div>
           <div className="export-body">
             {!demo&&<label className="material-label">Drawing material <input value={material} maxLength={48} onChange={e=>setMaterial(e.target.value)} placeholder="Unspecified"/></label>}
-            <div className="export-actions"><button className="btn primary" disabled={!!busy} onClick={()=>cad('drawing')}><FileText size={16}/> Generate 2D drawing</button><button className="btn" disabled={!!busy} onClick={()=>cad('tests')}><ClipboardCheck size={16}/> Run three-case tests</button></div>
-            <div className="filechips">{resultFiles.map((filename,i)=>filename==='pegboard.sc'&&!files[filename]?null:files[filename]?<a className="btn small-btn" href={files[filename]} download={filename} key={filename}><ArrowDownToLine size={14}/>{formatNames[i]}</a>:<button disabled key={filename} className="btn small-btn">{formatNames[i]}</button>)}</div>
+            <div className="export-actions"><button className="btn primary" disabled={!!busy} onClick={()=>cad('drawing')}><FileText size={16}/> {demo?'View sample drawing':'Generate 2D drawing'}</button><button className="btn" disabled={!!busy} onClick={()=>cad('tests')}><ClipboardCheck size={16}/> {demo?'Show sample tests':'Run three-case tests'}</button></div>
+            {!demo&&<div className="filechips">{resultFiles.map((filename,i)=>filename==='pegboard.sc'&&!files[filename]?null:files[filename]?<a className="btn small-btn" href={files[filename]} download={filename} key={filename}><ArrowDownToLine size={14}/>{formatNames[i]}</a>:<button disabled key={filename} className="btn small-btn">{formatNames[i]}</button>)}</div>}
             {testResults?.cases&&<div className="test-results">{testResults.cases.map(row=><div key={row.name}><span>{row.name}</span><b className={row.result==='PASS'?'pass':'failure'}>{row.result}</b></div>)}<p>Row and column transitions {testResults.transitionsPassed?'passed':'failed'}.</p></div>}
-            <div className="reports">{files['pegboard_test_log.csv']&&<a href={files['pegboard_test_log.csv']} download="pegboard_test_log.csv"><ArrowDownToLine size={15}/> Download test log</a>}{files['validation_report.json']&&<a href={files['validation_report.json']} download="validation_report.json">JSON report</a>}{[1,2,3].map(i=>['FCStd','sc'].map(ext=>{
+            {!demo&&<div className="reports">{files['pegboard_test_log.csv']&&<a href={files['pegboard_test_log.csv']} download="pegboard_test_log.csv"><ArrowDownToLine size={15}/> Download test log</a>}{files['validation_report.json']&&<a href={files['validation_report.json']} download="validation_report.json">JSON report</a>}{[1,2,3].map(i=>['FCStd','sc'].map(ext=>{
               const name=`case_${i}.${ext}`
               return files[name]&&<a key={name} href={files[name]} download={name}>Case {i} {ext==='sc'?'SolidCraft':'FCStd'}</a>
-            }))}</div>
+            }))}</div>}
           </div>
         </section>
       </div>
@@ -309,21 +309,21 @@ function App() {
               <Scene source={viewerSource} projections={projectedCanvases}/>
             </Suspense>
           </div>
-          <div className="review-downloads">
+          {!demo&&<div className="review-downloads">
             <a className="template" href={viewerSource.url} download={`pegboard.${viewerSource.format}`}>
               <ArrowDownToLine size={15}/> Download {viewerSource.format.toUpperCase()}
             </a>
             {files['pegboard.step']&&<a className="template" href={files['pegboard.step']} download="pegboard.step">Download STEP</a>}
-          </div>
+          </div>}
         </section>
         <section aria-labelledby="review-views-title" className="review-pane">
           <div className="review-pane-heading"><h3 id="review-views-title">2D and isometric views</h3></div>
           <DrawingReview sheetUrl={sheetUrl} tab={drawingTab} setTab={setDrawingTab} projections={projectedCanvases}/>
-          <div className="review-downloads">
+          {!demo&&<div className="review-downloads">
             {sheetUrl&&<a className="template" href={sheetUrl} download="pegboard.svg"><ArrowDownToLine size={15}/> Download SVG</a>}
             {files['pegboard.pdf']&&<a className="template" href={files['pegboard.pdf']} download="pegboard.pdf">Download PDF</a>}
             {!sheetUrl&&<span>Generate a 2D drawing to preview the dimensioned sheet.</span>}
-          </div>
+          </div>}
         </section>
         <section aria-labelledby="review-details-title" className="review-pane review-details">
           <div className="review-pane-heading"><h3 id="review-details-title">Product characteristics</h3></div>
@@ -335,8 +335,8 @@ function App() {
     {detailEditor&&<DetailedDesign initial={detailEditor.source} onClose={()=>setDetailEditor(undefined)}/>}
     <dialog aria-label="Spreadsheet to Drawing walkthrough" ref={video} onClose={()=>video.current?.querySelector('video')?.pause()} className="video-dialog">
       <div className="panel-head"><div className="icon-tile"><Play size={19}/></div><div><h2>Spreadsheet to Drawing walkthrough</h2><p>Inputs, CAD recomputation, drawings and test evidence</p></div><button className="square" onClick={()=>video.current?.close()} aria-label="Close video"><X size={18}/></button></div>
-      <video controls preload="none" playsInline src={sampleUrl('walkthrough.mp4')}><track src={captionUrl} kind="captions" srcLang="en" label="English" default/></video>
-      <a className="template video-download" href={sampleUrl('walkthrough.mp4')} download="walkthrough.mp4"><ArrowDownToLine size={15}/> Download video</a>
+      <video controls controlsList={demo?'nodownload':undefined} preload="none" playsInline src={sampleUrl('walkthrough.mp4')}><track src={captionUrl} kind="captions" srcLang="en" label="English" default/></video>
+      {!demo&&<a className="template video-download" href={sampleUrl('walkthrough.mp4')} download="walkthrough.mp4"><ArrowDownToLine size={15}/> Download video</a>}
     </dialog>
   </>
 }

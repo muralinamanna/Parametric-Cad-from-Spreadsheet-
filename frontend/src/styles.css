@@ -121,8 +121,6 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .engine-panel p{margin:6px 0 0}
 .fallback-reason{display:block;overflow-wrap:anywhere}
 .demo-note>svg{flex:none;align-self:flex-start;margin-top:2px}
-.demo-engine-help{padding:6px 0 0;font-size:12px}
-.demo-engine-help summary{display:list-item;font-weight:600}
 .hero-end{flex-wrap:wrap;justify-content:flex-end}
 .cad-viewer{width:min(900px,94vw)}
 .cad-viewer-canvas{position:relative;height:min(60vh,520px);background:#eff5fc}
