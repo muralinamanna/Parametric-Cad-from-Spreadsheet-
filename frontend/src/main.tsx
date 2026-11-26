@@ -7,6 +7,7 @@ import DrawingReview from './DrawingReview'
 import ProductDetails from './ProductDetails'
 import {api} from './api'
 import DetailedDesign from './DetailedDesign'
+import DetailedDemo from './DetailedDemo'
 import type {DesignSource} from './DetailedDesign'
 import './styles.css'
 import captions from './captions.vtt?raw'
@@ -90,6 +91,7 @@ function App() {
   const [engineEvidence,setEngineEvidence]=useState<Evidence>()
   const version=health?.freecad
   const [id,setId]=useState('')
+  const [detailedDemo,setDetailedDemo]=useState(false)
   const [detailEditor,setDetailEditor]=useState<{source:DesignSource|null}>()
   const [files,setFiles]=useState<Record<string,string>>(demo?downloadable:{})
   const [testResults,setTestResults]=useState<Job['evidence']>()
@@ -202,6 +204,7 @@ function App() {
           <button className="btn" disabled={!!busy||!viewerSource}
             title={viewerSource?undefined:'Generate a CAD model to enable the viewer'}
             onClick={()=>{setDrawingTab(sheetUrl?'sheet':'views');viewerDialog.current?.showModal();setViewerOpen(true)}}><Eye size={16}/> View in browser</button>
+          {demo&&<button className="btn" onClick={()=>setDetailedDemo(true)}>Detailed design demo</button>}
           {!demo&&id&&viewerSource&&<button className="btn" disabled={!!busy} onClick={()=>setDetailEditor({
             source:{sourceModelId:id,parameters:current.parameters,sources:current.sources||{},detailParameters:current.detailParameters,mesh:viewerSource}
           })}>Create Detailed Product Design</button>}
@@ -328,6 +331,7 @@ function App() {
         </section>
       </div>}
     </dialog>
+    {detailedDemo&&<DetailedDemo asset={sampleUrl} onClose={()=>setDetailedDemo(false)}/>}
     {detailEditor&&<DetailedDesign initial={detailEditor.source} onClose={()=>setDetailEditor(undefined)}/>}
     <dialog aria-label="Spreadsheet to Drawing walkthrough" ref={video} onClose={()=>video.current?.querySelector('video')?.pause()} className="video-dialog">
       <div className="panel-head"><div className="icon-tile"><Play size={19}/></div><div><h2>Spreadsheet to Drawing walkthrough</h2><p>Inputs, CAD recomputation, drawings and test evidence</p></div><button className="square" onClick={()=>video.current?.close()} aria-label="Close video"><X size={18}/></button></div>
