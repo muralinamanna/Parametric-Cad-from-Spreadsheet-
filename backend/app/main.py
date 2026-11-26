@@ -47,8 +47,8 @@ class EngineRequest(BaseModel):
 
 class JobRequest(EngineRequest):
     parameters: Parameters
-    sources: dict[str,str] = Field(default_factory=dict)
-    detail_parameters: DetailParameters = Field(default_factory=dict)
+    sources: dict[str,str] | None = None
+    detail_parameters: DetailParameters | None = None
     model_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 class DrawingMetadata(BaseModel):
@@ -101,6 +101,19 @@ def execute(action: str, request=None, mode: EngineMode | None = None):
             previous = JOBS / request.model_id
             if not any((previous / name).is_file() for name in ("pegboard.FCStd","pegboard.sc")):
                 raise HTTPException(404, "The referenced native model is missing.")
+    saved_preview = None
+    if request:
+        sources, extras = request.sources, request.detail_parameters
+        previous_preview = previous / "preview.json" if previous else None
+        if previous_preview and previous_preview.is_file() and (sources is None or extras is None):
+            last = Preview.model_validate_json(previous_preview.read_text(encoding="utf-8"))
+            old_values = last.parameters.model_dump()
+            if sources is None:
+                sources = {key: location for key,location in last.sources.items()
+                           if key not in parameters or parameters[key] == old_values[key]}
+            if extras is None:
+                extras = last.detailParameters
+        saved_preview = preview(request.parameters, sources, extras)
     if isinstance(request, DrawingRequest):
         metadata = request.metadata.model_dump()
     ident = uuid4().hex
@@ -118,8 +131,8 @@ def execute(action: str, request=None, mode: EngineMode | None = None):
         publish.mkdir()
         for name in result.files:
             (result.folder / name).replace(publish / name)
-        if request:
-            (publish / "preview.json").write_text(preview(request.parameters, request.sources, request.detail_parameters).model_dump_json(), encoding="utf-8")
+        if saved_preview:
+            (publish / "preview.json").write_text(saved_preview.model_dump_json(), encoding="utf-8")
         publish.replace(JOBS / ident)
         return JobResponse(id=ident, files={name:f"/api/exports/{ident}/{name}" for name in result.files},
                            evidence=result.evidence)

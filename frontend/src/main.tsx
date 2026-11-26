@@ -13,7 +13,7 @@ import captions from './captions.vtt?raw'
 
 const nominalPreview=calculate(defaults)
 const Scene=lazy(()=>import('./Scene'))
-const setupGuide='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/blob/b5bf3d5835ce7a0e45a3d6edbcf1df2c14730064/README.md'
+const setupGuide='https://github.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/blob/4bdefa3/README.md'
 const fullAppSetup=setupGuide+'#run-the-full-local-app'
 const embeddedSamples=document.getElementById('embedded-samples')?.textContent
 const bundledSamples:Record<string,[string,string]>=embeddedSamples?JSON.parse(embeddedSamples):{}
@@ -217,6 +217,7 @@ function App() {
             <p>To generate custom CAD files, run the full app with a CAD engine installed. Auto tries FreeCAD first
               and retries a failed CAD operation once with SolidCraft 0.45.0. You can also select either engine manually.</p>
             <p><a href={setupGuide+'#cad-engine-switching'}>CAD engine setup and supported exports</a></p>
+            <p><a href={setupGuide+'#detailed-product-design'}>Detailed design setup and mounting-plate example</a></p>
           </details>
         </div>
       </aside>}

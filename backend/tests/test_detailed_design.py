@@ -57,6 +57,14 @@ def test_mounting_plate_round_trip(tmp_path, monkeypatch):
                                                   "sources":first["sources"],"detail_parameters":first["detailParameters"]})
     assert started.status_code==200,started.text
     original=started.json()
+    recomputed=client.post("/api/model/recompute",json={"engine":"freecad","model_id":original["id"],
+        "parameters":first["parameters"] | {"boardWidth":125}})
+    assert recomputed.status_code==200,recomputed.text
+    provenance=client.get("/api/model/preview",params={"model_id":recomputed.json()["id"]}).json()
+    assert provenance["detailParameters"]=={"holeSpacing":55}
+    assert provenance["sources"]["holeSpacing"]=="Sheet!B9"
+    assert provenance["sources"]["boardHeight"]=="Sheet!B3"
+    assert provenance["sources"]["boardWidth"]=="Field boardWidth"
     original_stl=client.get(original["files"]["pegboard.stl"]).content
     recipe=[
         feature("mount","pattern",dict(x=8,y=8,diameter=4,pitchX="holeSpacing",pitchY="holeSpacing")),
