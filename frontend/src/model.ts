@@ -3,7 +3,7 @@ export type Key = keyof typeof defaults
 export type Parameters = Record<Key, number>
 export type Input = Record<Key, string|number>
 export type Calculations = ReturnType<typeof calculate>['calculations']
-export type Preview = ReturnType<typeof calculate>
+export type Preview = ReturnType<typeof calculate> & {sources?: Record<string,string>, detailParameters?: Record<string,number>}
 export const fields: [Key,string,string][] = [
   ['boardWidth','Board width','Overall dimension along X'],
   ['boardHeight','Board height','Overall dimension along Y'],

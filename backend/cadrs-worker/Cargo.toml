@@ -1,0 +1,14 @@
+[package]
+name = "spreadsheet-cadrs-worker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cadrs_kernel = { git = "https://github.com/rvdende/cadrs", rev = "07e7730daa7a717e22057bd65ea393b10fffbf66" }
+nalgebra = "0.35"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.dev]
+opt-level = 1
+debug = 0

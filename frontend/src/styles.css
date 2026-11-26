@@ -182,3 +182,25 @@ footer{padding:17px 0;color:#506780;display:flex;gap:9px;justify-content:space-b
 .drawing-pan{cursor:grab;touch-action:none;user-select:none}
 .drawing-pan:active{cursor:grabbing}
 .drawing-scale{display:flow-root;min-height:100%;margin-inline:auto}
+.detail-dialog{width:min(1440px,96vw);max-height:94dvh}
+.detail-grid{display:grid;grid-template-columns:minmax(180px,.68fr) minmax(330px,1.35fr) minmax(240px,1.2fr);gap:12px;padding:12px;background:#f3f6fa}
+.detail-panel{background:white;border:1px solid #dce5f0;border-radius:7px;padding:10px;min-width:0}
+.detail-panel h3{font-size:14px;margin:0 0 10px;color:#163657}
+.detail-actions,.detail-feature-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px}
+.detail-feature-actions{padding:3px 0 6px}
+.detail-actions label,.detail-panel label,.detail-panel dl,.detail-panel p,.detail-status,.detail-changes{font-size:12px}
+.detail-actions select,.detail-panel select,.detail-panel input[type=number]{border:1px solid #d5e2f0;background:#f8fafd;border-radius:4px;padding:4px;min-width:0;font:inherit}
+.detail-status,.detail-changes,.detail-empty{margin:6px 12px;padding:9px;background:#edf4fb;border-radius:5px;color:#234564}
+.detail-status span{display:block}
+.detail-changes{padding-left:25px}
+.detail-panel dl{display:grid;gap:8px;margin:0}
+.detail-panel dt{font-weight:650}
+.detail-panel dd{margin:2px 0 0;color:#536681}
+.detail-feature-list{padding:0;margin:0;list-style:none}
+.detail-feature-list fieldset{border:1px solid #dce5f0;border-radius:5px;margin:0 0 7px;padding:6px;min-width:0}
+.detail-feature-list legend{font-size:12px;color:#1a3f64;font-weight:650}
+.detail-field{display:grid;grid-template-columns:minmax(85px,1fr) minmax(68px,1.15fr) minmax(45px,.7fr);gap:5px;align-items:center;margin:4px 0;font-size:12px}
+.detail-feature-list .failed-feature fieldset{border-color:#b54f46}
+.feature-error{color:#a12c27}
+.detail-preview{position:relative;height:min(55vh,510px);min-height:295px;background:#f4f8fc}
+@media(max-width:880px){.detail-grid{grid-template-columns:minmax(0,1fr)}}

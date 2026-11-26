@@ -5,6 +5,9 @@ import {calculate, defaults, fields, number} from './model'
 import type {Input, Key, Parameters, Preview} from './model'
 import DrawingReview from './DrawingReview'
 import ProductDetails from './ProductDetails'
+import {api} from './api'
+import DetailedDesign from './DetailedDesign'
+import type {DesignSource} from './DetailedDesign'
 import './styles.css'
 import captions from './captions.vtt?raw'
 
@@ -45,13 +48,6 @@ type Evidence={cases?:{name:string,result:string}[],transitionsPassed?:boolean,a
   engine?:Engine,engineVersion?:string,fallbackReason?:string,recomputeSuccessful?:boolean,
   drawing?:{validated:boolean,views?:number}}
 type Job={id:string,files:Record<string,string>,evidence:Evidence}
-const api = async <T,>(path:string, body?:unknown):Promise<T>=>{
-  const response=await fetch('/api'+path,body===undefined?undefined:{method:'POST',...(body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})})
-  const result=await response.json()
-  if (!response.ok) throw Error(typeof result.detail==='string'?result.detail:result.detail?.map((d:{loc:string[],msg:string})=>d.loc.slice(1).join('.')+' '+d.msg).join(' · ')||'The API returned an error.')
-  return result
-}
-
 function Blueprint({model,dimensions}:{model:Preview,dimensions:boolean}) {
   const {parameters:p,slots}=model
   const slotCount=model.calculations.totalSlots
@@ -85,7 +81,7 @@ function App() {
   const standalone=location.protocol==='file:'||import.meta.env.MODE==='standalone'
   const demo=params.has('demo')||location.pathname.endsWith('demo.html')||standalone
   const [draft,setDraft]=useState<Input>({...defaults})
-  const [current,setCurrent]=useState(()=>calculate(defaults))
+  const [current,setCurrent]=useState<Preview>(()=>calculate(defaults))
   const [message,setMessage]=useState('Dimensions are ready to review.')
   const [error,setError]=useState('')
   const [busy,setBusy]=useState('')
@@ -94,6 +90,7 @@ function App() {
   const [engineEvidence,setEngineEvidence]=useState<Evidence>()
   const version=health?.freecad
   const [id,setId]=useState('')
+  const [detailEditor,setDetailEditor]=useState<{source:DesignSource|null}>()
   const [files,setFiles]=useState<Record<string,string>>(demo?downloadable:{})
   const [testResults,setTestResults]=useState<Job['evidence']>()
   const [modelEvidence,setModelEvidence]=useState<number>()
@@ -138,7 +135,11 @@ function App() {
   }
   async function apply(value=readDraft()) {
     const local=calculate(value)
-    accept(demo?local:await api<Preview>('/parameters/validate',value))
+    const result=demo?local:await api<Preview>('/parameters/validate',value)
+    const sources=Object.fromEntries(fields.filter(([key])=>value[key]===current.parameters[key]&&current.sources?.[key])
+      .map(([key])=>[key,current.sources![key]]))
+    if(current.sources?.holeSpacing) sources.holeSpacing=current.sources.holeSpacing
+    accept({...result,sources,detailParameters:current.detailParameters})
   }
   function cad(action:'model'|'drawing'|'tests') {
     if(demo){
@@ -156,7 +157,7 @@ function App() {
         setTestResults(result.evidence)
         setMessage('Acceptance run complete. See case results and measured geometry in the validation report.')
       } else {
-        const body={parameters:p,model_id,engine:engineMode}
+        const body={parameters:p,model_id,engine:engineMode,sources:current.sources,detail_parameters:current.detailParameters}
         result=action==='drawing'
           ?await api<Job>('/drawing/generate',{...body,metadata:{date:today,material:material.trim()||'Unspecified'}})
           :await api<Job>(id?'/model/recompute':'/model/generate',body)
@@ -201,6 +202,10 @@ function App() {
           <button className="btn" disabled={!!busy||!viewerSource}
             title={viewerSource?undefined:'Generate a CAD model to enable the viewer'}
             onClick={()=>{setDrawingTab(sheetUrl?'sheet':'views');viewerDialog.current?.showModal();setViewerOpen(true)}}><Eye size={16}/> View in browser</button>
+          {!demo&&id&&viewerSource&&<button className="btn" disabled={!!busy} onClick={()=>setDetailEditor({
+            source:{sourceModelId:id,parameters:current.parameters,sources:current.sources||{},detailParameters:current.detailParameters,mesh:viewerSource}
+          })}>Create Detailed Product Design</button>}
+          {!demo&&<button className="btn small-btn" onClick={()=>setDetailEditor({source:null})}>Saved detailed designs</button>}
         </div>
       </section>
       {demo&&<aside className="demo-note">
@@ -322,6 +327,7 @@ function App() {
         </section>
       </div>}
     </dialog>
+    {detailEditor&&<DetailedDesign initial={detailEditor.source} onClose={()=>setDetailEditor(undefined)}/>}
     <dialog aria-label="Spreadsheet to Drawing walkthrough" ref={video} onClose={()=>video.current?.querySelector('video')?.pause()} className="video-dialog">
       <div className="panel-head"><div className="icon-tile"><Play size={19}/></div><div><h2>Spreadsheet to Drawing walkthrough</h2><p>Inputs, CAD recomputation, drawings and test evidence</p></div><button className="square" onClick={()=>video.current?.close()} aria-label="Close video"><X size={18}/></button></div>
       <video controls preload="none" playsInline src={sampleUrl('walkthrough.mp4')}><track src={captionUrl} kind="captions" srcLang="en" label="English" default/></video>

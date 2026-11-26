@@ -1,0 +1,10 @@
+parameter,value
+boardWidth,120
+boardHeight,100
+boardThickness,8
+edgeMargin,20
+slotWidth,4
+slotLength,8
+slotSpacing,55
+holeSpacing,55
+units,mm

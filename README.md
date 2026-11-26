@@ -62,6 +62,35 @@ SolidCraft geometry is built and recomputed through the official JSON command CL
 
 The adapter invokes a separately installed third-party program by Tangency Labs. SolidCraft code offers [MIT](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/LICENSE-MIT) or [Apache-2.0](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/LICENSE-APACHE) terms. Its branding and interface assets have [separate terms](https://github.com/tangency-labs/solidcraft/blob/v0.45.0/LICENSE-BRAND). The project ships its own web interface and does not redistribute SolidCraft binaries, branding, or UI assets.
 
+## Detailed product design
+
+The detailed editor is optional. The existing FreeCAD and SolidCraft workflow remains available without the CADRS worker.
+
+1. Install Rust 1.100 or later and build the worker from the repository root.
+
+   ```sh
+   cargo +stable build --release --locked --manifest-path backend/cadrs-worker/Cargo.toml
+   ```
+
+   The app discovers `backend/cadrs-worker/target/release/spreadsheet-cadrs-worker` automatically. For a different build directory, set `CADRS_WORKER` to the executable path. Keep the usual FreeCAD or SolidCraft setup for generating the original model.
+
+2. Load [the mounting-plate spreadsheet](templates/detailed_mounting_plate.csv), apply the parameters, and generate CAD. Choose **Create Detailed Product Design**. The source panel displays the XLSX cell, CSV row and column, or manually entered field for each dimension. All supported spreadsheet and editor dimensions are in millimetres.
+3. Add a **Rectangular hole pattern** with two rows and two columns. Use an 8 mm X and Y centre, 4 mm diameter, and bind X and Y pitch to **Mounting hole pitch**. Add a **Rectangular pocket** at X 20 mm and Y 50 mm with a 15 × 8 mm footprint and 2 mm depth. Add a 1 mm **Edge chamfer** on the top front edge. Select **Rebuild** to apply the list from top to bottom. Move, suppress, or delete a feature before rebuilding to change the sequence.
+4. To try a spreadsheet refresh, change `boardWidth` to 140 and `holeSpacing` to 65 in a copy of the CSV. Use **Refresh from spreadsheet** in the editor. It lists the changed values and attempts a rebuild. The optional `holeSpacing` field drives detailed mounting holes independently of the original `slotSpacing`. If it is removed from the refreshed sheet, any binding to it is flagged for repair.
+5. Select **Save variant** after a successful build. **Saved detailed designs** reopens its source link, current spreadsheet snapshot, feature settings and bindings. The history is stored in `outputs/jobs` alongside STEP and STL for the verified revision. A failed rebuild highlights its feature and keeps the last successful preview and files available.
+
+The Python API reuses the spreadsheet parser, parameter validation and exact slot coordinates. It rebuilds the original plate profile with its original through-slots in the isolated Rust worker. [CADRS `cadrs_kernel`](https://github.com/rvdende/cadrs/tree/07e7730daa7a717e22057bd65ea393b10fffbf66/crates/cadrs_kernel) is pinned to revision `07e7730daa7a717e22057bd65ea393b10fffbf66`. It performs solid extrusion, booleans, edge fillets and chamfers, and STEP export. Its tessellation supplies the standard STL viewer. Lengths cross the boundary in millimetres; the kernel uses radians for tessellation settings. The editor does not expose angle inputs.
+
+Supported features are circular through-holes, rectangular through-hole patterns, blind rectangular pockets, and equal-distance chamfers and constant-radius fillets on selectable outside top edges. The worker resolves an edge each time from the plate datum and current dimensions. If an earlier feature removes or splits the edge, select an intact edge or reorder the operations. Arbitrary face or edge picking and intersecting openings are outside the current feature set. The standalone HTML remains a sample viewer; detailed editing requires the backend worker.
+
+CADRS is by rvdende and contributors under MIT or Apache-2.0. Its license texts are in [the worker's license directory](backend/cadrs-worker/licenses). The repository links to the pinned upstream source through Cargo and does not include a CADRS executable.
+
+To run the mounting-plate acceptance test with CADRS and the Linux FreeCAD Python module installed:
+
+```sh
+PYTHONPATH=backend RUN_CADRS_TESTS=1 python -m pytest -q backend/tests/test_detailed_design.py
+```
+
 ## Demo and video
 
 [Download the standalone HTML](https://raw.githubusercontent.com/muralinamanna/Parametric-Cad-from-Spreadsheet-/feature/solidcraft-fallback/index.html) using the browser’s **Save link as** command, then open the saved file. The root HTML includes the demo, walkthrough video, and sample downloads in one file. You can also open `demo/index.html` alongside its `demo/samples` directory or use **Interactive demo** inside the running full app. If your browser restricts local HTML, run `python -m http.server 8080` in the repository directory and open http://127.0.0.1:8080.

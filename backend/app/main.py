@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 from tempfile import TemporaryDirectory
 from zipfile import BadZipFile, ZipFile
@@ -17,8 +17,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
+from . import details
 from .engines import CADEngineManager, EngineFailure, EngineMode
 from .parameters import DEFAULTS, calculate, positions
 
@@ -39,11 +40,15 @@ class Parameters(BaseModel):
     slotSpacing: float
     units: Literal["mm"] = Field(default="mm", exclude=True)
 
+DetailParameters = dict[Literal["holeSpacing"],Annotated[float,Field(gt=0,le=1_000_000,allow_inf_nan=False)]]
+
 class EngineRequest(BaseModel):
     engine: EngineMode | None = None
 
 class JobRequest(EngineRequest):
     parameters: Parameters
+    sources: dict[str,str] = Field(default_factory=dict)
+    detail_parameters: DetailParameters = Field(default_factory=dict)
     model_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 class DrawingMetadata(BaseModel):
@@ -65,6 +70,8 @@ class Preview(BaseModel):
     parameters: Parameters
     calculations: dict
     slots: list[tuple[float,float]]
+    detailParameters: DetailParameters = Field(default_factory=dict)
+    sources: dict[str,str] = Field(default_factory=lambda: {key: f"Field {key}" for key in DEFAULTS})
 
 app = FastAPI(title="Spreadsheet to Drawing", version="1.0.0")
 
@@ -74,13 +81,16 @@ async def invalid_request(_request, error):
     detail = [{key: issue[key] for key in ("loc", "msg", "type")} for issue in error.errors()]
     return JSONResponse(status_code=422, content={"detail": detail})
 
-def preview(p):
+def preview(p, sources=None, detail_parameters=None):
     values = p.model_dump()
     try:
         metrics = calculate(values)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
-    return Preview(parameters=p, calculations=metrics,slots=positions(values, metrics))
+    result = Preview(parameters=p, calculations=metrics,slots=positions(values, metrics),detailParameters=detail_parameters or {})
+    if sources:
+        result.sources.update({key: str(sources[key])[:200] for key in (*DEFAULTS,*result.detailParameters) if key in sources})
+    return result
 
 def execute(action: str, request=None, mode: EngineMode | None = None):
     parameters = metadata = previous = None
@@ -109,7 +119,7 @@ def execute(action: str, request=None, mode: EngineMode | None = None):
         for name in result.files:
             (result.folder / name).replace(publish / name)
         if request:
-            (publish / "preview.json").write_text(preview(request.parameters).model_dump_json(), encoding="utf-8")
+            (publish / "preview.json").write_text(preview(request.parameters, request.sources, request.detail_parameters).model_dump_json(), encoding="utf-8")
         publish.replace(JOBS / ident)
         return JobResponse(id=ident, files={name:f"/api/exports/{ident}/{name}" for name in result.files},
                            evidence=result.evidence)
@@ -150,6 +160,7 @@ async def upload(file: UploadFile = File(...)):
         raise HTTPException(413,"Maximum spreadsheet size is 1 MB.")
     suffix = Path(file.filename or "").suffix.lower()
     try:
+        sheet = None
         if suffix == ".csv":
             rows = list(csv.reader(io.StringIO(raw.decode("utf-8-sig"))))
         elif suffix == ".xlsx":
@@ -158,22 +169,26 @@ async def upload(file: UploadFile = File(...)):
                     raise ValueError("Expanded workbook exceeds 8 MB.")
             workbook = load_workbook(io.BytesIO(raw),read_only=True,data_only=True)
             try:
+                sheet = workbook.active.title
                 rows = list(workbook.active.iter_rows(min_row=1,max_row=1000,max_col=2,values_only=True))
             finally:
                 workbook.close()
         else:
             raise ValueError("Choose a .csv or .xlsx file.")
-        values = {}
-        for row in rows:
-            if not row or (row[0] not in DEFAULTS and row[0] != "units"):
+        values, sources = {}, {}
+        for index, row in enumerate(rows, 1):
+            if not row or (row[0] not in DEFAULTS and row[0] not in {"units","holeSpacing"}):
                 continue
             if row[0] in values or len(row)<2:
                 raise ValueError(f"Missing or duplicate value for {row[0]}.")
             values[row[0]] = row[1]
+            sources[row[0]] = f"{sheet}!B{index}" if sheet is not None else f"CSV row {index}, column B"
         missing = list(DEFAULTS.keys() - values.keys())
         if missing:
             raise ValueError("Missing spreadsheet values: " + ", ".join(sorted(missing)))
-        return preview(Parameters.model_validate(values))
+        detail_parameters = TypeAdapter(DetailParameters).validate_python(
+            {"holeSpacing":values.pop("holeSpacing")} if "holeSpacing" in values else {})
+        return preview(Parameters.model_validate(values), sources, detail_parameters)
     except (ValueError, ValidationError, BadZipFile, InvalidFileException, KeyError, SyntaxError) as error:
         raise HTTPException(422,f"Invalid spreadsheet. {error}") from error
 
@@ -206,6 +221,43 @@ def download(job_id: str, file_id: str):
     if not path.is_file() or path.is_symlink():
         raise HTTPException(404,"Export missing.")
     return FileResponse(path,filename=file_id)
+
+class DetailedJob(BaseModel):
+    source_model_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    parameters: Parameters | None = None
+    sources: dict[str,str] = Field(default_factory=dict)
+    detail_parameters: DetailParameters | None = None
+    features: list[details.Feature] = Field(default_factory=list,max_length=40)
+
+
+@app.post("/api/details/build")
+def build_detail(job: DetailedJob):
+    source = model_preview(job.source_model_id)
+    extras = source.detailParameters if job.detail_parameters is None else job.detail_parameters
+    current = preview(job.parameters or source.parameters, job.sources or source.sources, extras)
+    return details.build(JOBS,job.source_model_id,current.parameters.model_dump(),current.sources,extras,job.features)
+
+
+@app.get("/api/details")
+def list_details():
+    records = []
+    for marker in sorted(JOBS.glob("*/saved-detail"),key=lambda f:f.stat().st_mtime,reverse=True):
+        record = details.load(JOBS,marker.parent.name)
+        records.append({key:record[key] for key in ("id","sourceModelId","parameters")})
+    return records
+
+
+@app.get("/api/details/{variant_id}")
+def get_detail(variant_id: str):
+    return details.load(JOBS,variant_id)
+
+
+@app.post("/api/details/{variant_id}/save")
+def save_detail(variant_id: str):
+    record = details.load(JOBS,variant_id)
+    (JOBS/variant_id/"saved-detail").touch()
+    return record
+
 
 if DIST.is_dir():
     app.mount("/",StaticFiles(directory=DIST,html=True),name="frontend")

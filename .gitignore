@@ -4,3 +4,5 @@ __pycache__/
 frontend/node_modules/
 outputs/jobs/
 *.FCStd1
+
+backend/cadrs-worker/target/
